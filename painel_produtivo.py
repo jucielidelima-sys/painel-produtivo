@@ -430,3 +430,9 @@ with colA:
     render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)
 with colB:
     render_panel("22L — AIR FRYER (22L)", base_22, META_22L)
+# Atualiza a página automaticamente a cada 30 minutos (1800s)
+st.markdown(
+    "<meta http-equiv='refresh' content='1800'>",
+    unsafe_allow_html=True
+)
+

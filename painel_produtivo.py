@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+from zoneinfo import ZoneInfo  # Python 3.9+
 
 # =========================
 # CONFIG
@@ -11,6 +12,8 @@ st.set_page_config(page_title="Painel Performance Montagem", layout="wide")
 BASE_DIR = Path(".")  # repo / Streamlit Cloud
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
+
+TZ_BR = ZoneInfo("America/Sao_Paulo")
 
 # BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
@@ -26,28 +29,36 @@ COL_QTD = "N"
 COL_DESC = "O"
 
 # =========================
-# CSS (TV / CABER NA TELA)
+# CSS (corrige tarja branca / topo cortado + TV)
 # =========================
 st.markdown(
     """
     <style>
+      /* fundo preto geral */
       html, body, #root, .stApp,
       [data-testid="stAppViewContainer"], section.main, main, .block-container{
         background:#000 !important; color:rgba(255,255,255,.92) !important;
       }
+
+      /* remove header do streamlit (tarja) */
+      header[data-testid="stHeader"] { display:none !important; height:0 !important; }
+      [data-testid="stToolbar"] { display:none !important; height:0 !important; }
+      [data-testid="stDecoration"] { display:none !important; height:0 !important; }
+
+      /* puxa o app pra cima pra não sobrar faixa branca */
+      .stApp { margin-top: -60px !important; }
+      .main .block-container { padding-top: 0.4rem !important; }
 
       /* TV sem rolagem */
       html, body { height:100%; overflow:hidden !important; }
       [data-testid="stAppViewContainer"] { height:100vh !important; overflow:hidden !important; }
       section.main { height:100vh !important; overflow:hidden !important; }
       .block-container {
-        height:100vh !important; overflow:hidden !important;
-        padding-top:.18rem; padding-bottom:.12rem;
+        height:100vh !important;
+        overflow:hidden !important;
+        padding-bottom:.10rem !important;
         max-width: 1520px;
       }
-
-      header[data-testid="stHeader"] { height: 0.15rem !important; }
-      div[data-testid="stToolbar"] { visibility: hidden !important; height: 0px !important; }
 
       :root{
         --panel:rgba(255,255,255,.05);
@@ -60,12 +71,7 @@ st.markdown(
         --red:#ff4d4f;
       }
 
-      /* ===== TOP BAR ===== */
-      .topbar{
-        display:flex; align-items:center; justify-content:space-between;
-        gap:10px; margin: 0 0 4px 0;
-      }
-      .top-left{ display:flex; align-items:center; gap:10px; }
+      /* TOP BAR */
       .brand-title{ font-size:30px; font-weight:950; margin:0; line-height:1.05; }
       .upd{
         background:var(--panel);
@@ -77,43 +83,42 @@ st.markdown(
       .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
       .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
-      /* ===== KPI ===== */
+      /* KPI */
       .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 6px;}
       .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
       .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
       .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
       .kpi .u{ color:var(--orange); font-weight:950; font-size:11px; margin-top:3px;}
 
-      /* ===== MINI PROGRESS (SÓ TOTAL) ===== */
-      .mini{
-        background:var(--panel2);
-        border:1px solid var(--stroke);
-        border-radius:14px;
-        padding:8px 10px;
-        margin: 4px 0 6px;
-      }
-      .mini h3{ margin:0 0 4px 0; color:var(--orange); font-size:12px; font-weight:950; }
-      .p-row{ display:flex; align-items:center; gap:8px; margin: 4px 0; }
-      .p-lbl{ width: 80px; color: var(--muted); font-size:11px; font-weight:900; }
-      .p-barwrap{
-        flex:1;
-        background:rgba(255,255,255,.07);
-        border:1px solid rgba(255,255,255,.10);
-        height:9px; border-radius:999px; overflow:hidden;
-      }
-      .p-bar{ height:100%; border-radius:999px; }
-      .p-green{ background: var(--green); }
-      .p-orange{ background: var(--orange); }
-      .p-val{ width: 58px; text-align:right; font-size:11px; color: var(--text); font-weight:950; }
-
-      /* ===== PANELS ===== */
+      /* PANELS */
       .panel{
         background:var(--panel2);
         border:1px solid var(--stroke);
         border-radius:14px;
         padding:8px;
       }
-      .panel h2{ margin:0 0 6px 0; color:var(--orange); font-size:13px; font-weight:950; letter-spacing:.4px;}
+
+      /* Título do painel agora tem percentuais na mesma faixa */
+      .panel-title{
+        display:flex; align-items:center; justify-content:space-between;
+        gap:10px; margin:0 0 6px 0;
+      }
+      .panel-title h2{
+        margin:0; color:var(--orange); font-size:13px; font-weight:950; letter-spacing:.4px;
+      }
+      .pchips{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+      .pch{
+        background:rgba(255,255,255,.05);
+        border:1px solid rgba(255,255,255,.12);
+        border-radius:999px;
+        padding:4px 8px;
+        font-size:11px;
+        color:var(--muted);
+        white-space:nowrap;
+      }
+      .pch b{ color:var(--text); }
+      .pch .g{ color:var(--green); font-weight:950; }
+      .pch .o{ color:var(--orange); font-weight:950; }
 
       .table-header{
         display:grid; grid-template-columns:64px 60px 60px 60px 1fr;
@@ -141,7 +146,7 @@ st.markdown(
 
       .smallnote{ color:var(--muted); font-size:10px; margin-top:2px;}
 
-      /* ===== FOOTER CHIPS ===== */
+      /* FOOTER CHIPS */
       .foot{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;}
       .chip{
         background:rgba(255,255,255,.05);
@@ -211,7 +216,7 @@ def meta_from_desc(desc: str) -> int:
     return 0
 
 def horas_ate_agora():
-    agora = datetime.now().hour
+    agora = datetime.now(TZ_BR).hour
     h_max = max(H_INICIO, min(agora, H_FIM))
     horas = [h for h in range(H_INICIO, h_max + 1) if h != H_ALMOCO]
     return horas if horas else [H_INICIO]
@@ -230,36 +235,37 @@ def fmt_delta_html(x: float) -> str:
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
-def render_total_progress(realizado_pct: float, proj_pct: float):
-    r = clamp(realizado_pct, 0, 200)
-    p = clamp(proj_pct, 0, 200)
+def calc_line_kpis(base_horas: pd.DataFrame, meta_h: int):
+    hn = horas_ate_agora()
+    acumulado = float(base_horas[base_horas["HORA"].isin(hn)]["QTD"].sum())
+    meta_acum = float(meta_h * len(hn))
+    realizado_pct = (acumulado / meta_acum * 100.0) if meta_acum > 0 else 0.0
+
+    ritmo = acumulado / max(1, len(hn))
+    proj_final = ritmo * len(base_horas)
+    meta_turno = float(meta_h * len(base_horas))
+    proj_pct = (proj_final / meta_turno * 100.0) if meta_turno > 0 else 0.0
+
+    return clamp(realizado_pct, 0, 999), clamp(proj_pct, 0, 999)
+
+def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
+    realizado_pct, proj_pct = calc_line_kpis(base_horas, meta_h)
+
+    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+
+    # título + % na mesma faixa
     st.markdown(
         f"""
-        <div class="mini">
-          <h3>Percentual (total)</h3>
-
-          <div class="p-row">
-            <div class="p-lbl">Realizado</div>
-            <div class="p-barwrap">
-              <div class="p-bar p-green" style="width:{r/2:.1f}%"></div>
-            </div>
-            <div class="p-val">{r:.0f}%</div>
-          </div>
-
-          <div class="p-row">
-            <div class="p-lbl">Projeção</div>
-            <div class="p-barwrap">
-              <div class="p-bar p-orange" style="width:{p/2:.1f}%"></div>
-            </div>
-            <div class="p-val">{p:.0f}%</div>
+        <div class='panel-title'>
+          <h2>{title}</h2>
+          <div class='pchips'>
+            <div class='pch'>Realizado: <b class='g'>{realizado_pct:.0f}%</b></div>
+            <div class='pch'>Projeção: <b class='o'>{proj_pct:.0f}%</b></div>
           </div>
         </div>
         """,
         unsafe_allow_html=True
     )
-
-def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
-    st.markdown(f"<div class='panel'><h2>{title}</h2>", unsafe_allow_html=True)
 
     st.markdown(
         "<div class='table-header'><div>Hora</div><div>Qtd</div><div>Meta</div><div>Delta</div><div>Termômetro</div></div>",
@@ -312,7 +318,8 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
           <div class='chip'>Δ proj.: <b>{fmt_delta_html(delta_proj)}</b></div>
           <div class='chip'>Total: <b class='o'>{int(total)}</b></div>
           <div class='chip'>Meta: <b>{int(meta_turno)}</b></div>
-        </div></div>
+        </div>
+        </div>
         """,
         unsafe_allow_html=True
     )
@@ -325,7 +332,7 @@ if not ARQ_LIMPO.exists():
     st.stop()
 
 mtime = ARQ_LIMPO.stat().st_mtime
-ultima_atualizacao = datetime.fromtimestamp(mtime).strftime("%d/%m/%Y %H:%M:%S")
+ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
 
 @st.cache_data(show_spinner=False)
 def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
@@ -357,7 +364,7 @@ base_22 = build_hour_table(df_22)
 base_60 = build_hour_table(df_60)
 
 # =========================
-# TOP BAR (1 LINHA)
+# TOPO (logo + título + botão + hora)
 # =========================
 left, mid, right = st.columns([7, 1.5, 2.7], vertical_alignment="center")
 
@@ -411,13 +418,8 @@ with k4:
     cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
     st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
 
-# Percentual total (compacto)
-realizado_pct_total = (acum_total / meta_acum_total * 100.0) if meta_acum_total > 0 else 0.0
-proj_pct_total = (proj_final_total / meta_turno_total * 100.0) if meta_turno_total > 0 else 0.0
-render_total_progress(realizado_pct_total, proj_pct_total)
-
 # =========================
-# PAINÉIS 60L e 22L
+# PAINÉIS
 # =========================
 colA, colB = st.columns(2)
 with colA:

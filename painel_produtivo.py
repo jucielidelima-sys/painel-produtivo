@@ -1,12 +1,16 @@
 import streamlit as st
 import pandas as pd
 import time
+import requests
 from datetime import datetime, date
 
 # ======================================================
 # CONFIG
 # ======================================================
 st.set_page_config(page_title="Painel de Controle Produtivo", layout="wide")
+
+# >>>>> AJUSTE AQUI (se mudar repo/nome/branch) <<<<<
+RAW_XLSX_URL = "https://raw.githubusercontent.com/jucielidelima-sys/painel-produtivo/main/movimentos_estoque_dados.xlsx"
 
 # BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
@@ -230,7 +234,6 @@ def fmt_delta_html(x: float) -> str:
 
 def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     st.markdown(f"<div class='panel'><h2>{title}</h2>", unsafe_allow_html=True)
-
     st.markdown(
         "<div class='table-header'><div>Hora</div><div>Qtd</div><div>Meta/h</div><div>Delta</div><div>Termômetro</div></div>",
         unsafe_allow_html=True
@@ -289,6 +292,25 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     )
 
 # ======================================================
+# DOWNLOAD AUTOMÁTICO DO EXCEL DO GITHUB
+# ======================================================
+@st.cache_data(show_spinner=False, ttl=55)  # baixa de novo ~1x por minuto
+def baixar_excel_bytes(url: str) -> tuple[bytes, dict]:
+    r = requests.get(url, timeout=25)
+    r.raise_for_status()
+    meta = {
+        "len": len(r.content),
+        "etag": r.headers.get("ETag"),
+        "last_modified": r.headers.get("Last-Modified"),
+    }
+    return r.content, meta
+
+@st.cache_data(show_spinner=False)
+def ler_excel_sem_header(file_bytes: bytes) -> pd.DataFrame:
+    from io import BytesIO
+    return pd.read_excel(BytesIO(file_bytes), header=None)
+
+# ======================================================
 # TOPO
 # ======================================================
 topL, topR = st.columns([3.2, 1])
@@ -304,47 +326,47 @@ with topR:
     )
 
 # ======================================================
-# CONTROLES (CLOUD)
+# CONTROLES
 # ======================================================
 c1, c2, c3 = st.columns([2.0, 1.2, 3.8])
-
 with c1:
-    uploaded = st.file_uploader("📤 Envie o arquivo movimentos_estoque_dados.xlsx", type=["xlsx"])
-
+    st.markdown("<div class='smallnote'>Fonte: <b>GitHub (arquivo automático)</b></div>", unsafe_allow_html=True)
 with c2:
     if st.button("🔄 Atualizar painel"):
         st.cache_data.clear()
         st.rerun()
-
 with c3:
-    auto = st.checkbox("Auto atualizar (a cada 60s)", value=False)
+    auto = st.checkbox("Auto atualizar (a cada 60s)", value=True)
 
 if auto:
     time.sleep(60)
-    st.cache_data.clear()
     st.rerun()
 
-if uploaded is None:
-    st.warning("Envie o arquivo **movimentos_estoque_dados.xlsx** para carregar os dados.")
+# ======================================================
+# LER DADOS
+# ======================================================
+try:
+    file_bytes, meta = baixar_excel_bytes(RAW_XLSX_URL)
+except Exception as e:
+    st.error("Não consegui baixar o Excel do GitHub (RAW).")
+    st.write("URL configurada:", RAW_XLSX_URL)
+    st.code(str(e))
     st.stop()
 
-@st.cache_data(show_spinner=False)
-def load_noheader_from_upload(file_bytes: bytes) -> pd.DataFrame:
-    from io import BytesIO
-    return pd.read_excel(BytesIO(file_bytes), header=None)
+st.markdown(
+    f"<div class='smallnote'>Arquivo: <b>movimentos_estoque_dados.xlsx</b> | Tamanho: <b>{meta.get('len',0)} bytes</b> | "
+    f"ETag: <b>{meta.get('etag','-')}</b></div>",
+    unsafe_allow_html=True
+)
 
-df0 = load_noheader_from_upload(uploaded.getvalue())
-st.markdown(f"<div class='smallnote'>Arquivo carregado: <b>{uploaded.name}</b></div>", unsafe_allow_html=True)
+df0 = ler_excel_sem_header(file_bytes)
 
-# ======================================================
-# LER COLUNAS POR LETRA
-# ======================================================
 s_hora = get_series_by_letter(df0, COL_HORA)
 s_qtd  = get_series_by_letter(df0, COL_QTD)
 s_desc = get_series_by_letter(df0, COL_DESC)
 
 if s_hora is None or s_qtd is None or s_desc is None:
-    st.error("Não consegui localizar as colunas por letra (N/O/X).")
+    st.error("Não consegui localizar as colunas por letra (N/O/X) no Excel.")
     st.write("Qtd colunas:", df0.shape[1])
     st.write("Letras disponíveis:", excel_letters(df0.shape[1]))
     st.stop()
@@ -384,7 +406,6 @@ proj_final_total = ritmo * horas_exibidas
 delta_proj_total = proj_final_total - meta_turno_total
 
 k1, k2, k3, k4 = st.columns(4)
-
 with k1:
     st.markdown(f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>", unsafe_allow_html=True)
 with k2:

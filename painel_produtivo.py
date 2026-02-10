@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import time
 import requests
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
@@ -33,13 +32,12 @@ HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 META_22L = 15
 META_60L = 60
 
-# colunas por letra do Excel
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
 
 # =========================
-# CSS - MODO TV (SEM ROLAGEM)
+# CSS – MODO TV (layout mais cheio)
 # =========================
 st.markdown(
     """
@@ -56,9 +54,8 @@ st.markdown(
       header[data-testid="stHeader"],
       div[data-testid="stToolbar"],
       div[data-testid="stDecoration"],
-      footer{
-        display:none !important; height:0 !important;
-      }
+      footer{ display:none !important; height:0 !important; }
+
       section.main{
         height:100vh !important; overflow:hidden !important;
         padding-top:0 !important;
@@ -66,12 +63,16 @@ st.markdown(
       .main .block-container{
         height:100vh !important;
         overflow:hidden !important;
-        padding-top:.25rem !important;
-        padding-bottom:.15rem !important;
-        padding-left:.85rem !important;
-        padding-right:.85rem !important;
+        padding-top:.15rem !important;
+        padding-bottom:.10rem !important;
+        padding-left:.70rem !important;
+        padding-right:.70rem !important;
         max-width: 1920px !important;
       }
+
+      /* Mata espaços verticais padrão do streamlit */
+      div[data-testid="stVerticalBlock"] > div { gap: .15rem !important; }
+      .stMarkdown { margin-bottom:0 !important; }
 
       :root{
         --panel:rgba(255,255,255,.05);
@@ -85,101 +86,97 @@ st.markdown(
       }
       *{ color: var(--text); }
 
-      .brand h1{ margin:0; font-size:24px; font-weight:950; line-height:1.05; }
-      .brand .sub{ color:var(--muted); font-size:12px; margin-top:2px; }
+      /* Topo mais compacto */
+      .brand h1{ margin:0; font-size:20px; font-weight:950; line-height:1.05; }
+      .brand .sub{ color:var(--muted); font-size:11px; margin-top:1px; }
+      .smallline{ color:var(--muted); font-size:11px; margin-top:1px; }
 
       .upd{
         background:var(--panel);
         border:1px solid var(--stroke);
-        border-radius:14px;
-        padding:10px 14px;
-        min-width:260px;
+        border-radius:12px;
+        padding:8px 10px;
+        min-width:240px;
       }
-      .upd .lbl{ color:var(--muted); font-size:12px; }
-      .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:6px; }
+      .upd .lbl{ color:var(--muted); font-size:11px; }
+      .upd .val{ color:var(--orange); font-weight:950; font-size:12px; margin-top:4px; }
 
-      /* KPIs (4) */
-      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:8px 0 8px; }
+      /* KPIs menores (ganha espaço pras tabelas) */
+      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:6px 0 6px; }
       .kpi{
         background:var(--panel);
         border:1px solid var(--stroke);
-        border-radius:14px;
-        padding:10px 12px;
-        min-height:72px;
+        border-radius:12px;
+        padding:8px 10px;
+        min-height:56px;
       }
-      .kpi .t{ color:var(--muted); font-size:12px; font-weight:900; }
-      .kpi .v{ font-size:30px; font-weight:950; margin-top:6px; line-height:1; }
-      .kpi .u{ color:var(--orange); font-weight:950; font-size:12px; margin-top:4px; }
+      .kpi .t{ color:var(--muted); font-size:11px; font-weight:900; }
+      .kpi .v{ font-size:24px; font-weight:950; margin-top:4px; line-height:1; }
+      .kpi .u{ color:var(--orange); font-weight:950; font-size:11px; margin-top:2px; }
 
-      /* Dois painéis lado a lado */
-      .section-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-
+      /* Painéis ocupam mais altura */
       .panel{
         background:var(--panel2);
         border:1px solid var(--stroke);
-        border-radius:16px;
-        padding:10px 10px 8px 10px;
+        border-radius:14px;
+        padding:8px 10px 8px 10px;
       }
       .panel h2{
-        margin:0 0 6px 0;
+        margin:0 0 4px 0;
         color:var(--orange);
-        font-size:14px;
+        font-size:13px;
         font-weight:950;
-        letter-spacing:.3px;
       }
 
-      /* Cabeçalho tabela */
       .table-header{
         display:grid;
-        grid-template-columns:60px 60px 70px 70px 1fr;
+        grid-template-columns:58px 56px 60px 60px 1fr;
         gap:8px;
-        padding:6px 4px;
+        padding:5px 3px;
         border-bottom:1px solid var(--stroke);
         color:var(--muted);
         font-weight:950;
-        font-size:12px;
+        font-size:11px;
       }
 
-      /* Linhas tabela (compactas) */
       .row{
         display:grid;
-        grid-template-columns:60px 60px 70px 70px 1fr;
+        grid-template-columns:58px 56px 60px 60px 1fr;
         gap:8px;
-        padding:6px 4px;
+        padding:5px 3px;
         border-bottom:1px solid rgba(255,255,255,.08);
-        font-size:12px;
+        font-size:11px;
         align-items:center;
       }
-
       .pos{ color:var(--green); font-weight:950;}
       .neg{ color:var(--red); font-weight:950;}
 
       .barwrap{
         background:rgba(255,255,255,.07);
         border:1px solid rgba(255,255,255,.10);
-        height:10px;
+        height:9px;
         border-radius:999px;
         overflow:hidden;
       }
       .bar{ height:100%; border-radius:999px; }
       .bar.orange{ background:var(--orange); }
       .bar.green{ background:var(--green); }
-      .smallnote{ color:var(--muted); font-size:11px; margin-top:2px; }
+      .smallnote{ color:var(--muted); font-size:10.5px; margin-top:1px; }
 
-      /* Rodapé do painel - SEM SUMIR */
+      /* Rodapé dos painéis (chips) */
       .foot{
-        margin-top:8px;
+        margin-top:6px;
         display:flex;
-        gap:8px;
+        gap:6px;
         flex-wrap:wrap;
       }
       .chip{
         background:rgba(255,255,255,.05);
         border:1px solid rgba(255,255,255,.12);
         border-radius:999px;
-        padding:7px 12px;
-        font-size:13px;
-        line-height:1.2;
+        padding:6px 10px;
+        font-size:12px;
+        line-height:1.15;
         white-space:nowrap;
       }
       .chip b{ color:var(--text); }
@@ -187,8 +184,8 @@ st.markdown(
       .chip .g{ color:var(--green); font-weight:950;}
       .chip .r{ color:var(--red); font-weight:950;}
 
-      .smallline{ color:var(--muted); font-size:12px; margin-top:2px; }
-      div[data-testid="stVerticalBlock"] > div { gap: .25rem; }
+      /* Botão compacto */
+      .stButton>button{ border-radius:10px; font-weight:950; padding:.30rem .70rem; }
     </style>
     """,
     unsafe_allow_html=True
@@ -235,10 +232,8 @@ def parse_hour(x):
 
 def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
-    if "22L" in d:
-        return META_22L
-    if "60L" in d:
-        return META_60L
+    if "22L" in d: return META_22L
+    if "60L" in d: return META_60L
     return 0
 
 def horas_ate_agora():
@@ -262,20 +257,13 @@ def fmt_delta_html(x: float) -> str:
 def baixar_excel_bytes(url: str):
     r = requests.get(url, timeout=25)
     r.raise_for_status()
-    meta = {
-        "len": len(r.content),
-        "etag": r.headers.get("ETag"),
-        "last_modified": r.headers.get("Last-Modified"),
-    }
+    meta = {"len": len(r.content), "etag": r.headers.get("ETag")}
     return r.content, meta
 
 @st.cache_data(show_spinner=False)
 def ler_excel_sem_header(file_bytes: bytes) -> pd.DataFrame:
     return pd.read_excel(BytesIO(file_bytes), header=None)
 
-# =========================
-# RENDER DO PAINEL (COM RODAPÉ)
-# =========================
 def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     st.markdown(f"<div class='panel'><h2>{title}</h2>", unsafe_allow_html=True)
     st.markdown("<div class='table-header'><div>Hora</div><div>Qtd</div><div>Meta/h</div><div>Delta</div><div>Termômetro</div></div>", unsafe_allow_html=True)
@@ -305,7 +293,6 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
             unsafe_allow_html=True
         )
 
-    # Rodapé com acumulados/projeções
     total = float(base_horas["QTD"].sum())
     meta_turno = float(meta_h * len(base_horas))
 
@@ -334,52 +321,45 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     )
 
 # =========================
-# TOPO
+# TOPO (compacto)
 # =========================
-colL, colR = st.columns([3.2, 1])
-with colL:
+left, right = st.columns([3.2, 1])
+with left:
     st.markdown(
-        f"<div class='brand'><h1>Painel de Controle Produtivo</h1><div class='sub'>Modo TV — {date.today():%d/%m/%Y}</div></div>",
+        f"<div class='brand'><h1>Painel de Controle Produtivo</h1>"
+        f"<div class='sub'>Modo TV — {date.today():%d/%m/%Y}</div></div>",
         unsafe_allow_html=True
     )
     st.markdown("<div class='smallline'>Fonte: <b>GitHub (automático)</b></div>", unsafe_allow_html=True)
 
-with colR:
+with right:
     st.markdown(
-        f"<div class='upd'><div class='lbl'>Atualização</div><div class='val'>{agora_br():%d/%m/%Y %H:%M:%S}</div></div>",
+        f"<div class='upd'><div class='lbl'>Atualização</div>"
+        f"<div class='val'>{agora_br():%d/%m/%Y %H:%M:%S}</div></div>",
         unsafe_allow_html=True
     )
 
-# =========================
-# CONTROLES
-# =========================
-c1, c2, c3 = st.columns([2.0, 1.3, 3.7])
+# Controles (SEM auto atualizar)
+c1, c2, c3 = st.columns([2.0, 1.2, 3.8])
 with c2:
     if st.button("🔄 Atualizar painel"):
         st.cache_data.clear()
         st.rerun()
 
-with c3:
-    auto = st.checkbox("Auto atualizar (a cada 60s)", value=True)
-
-if auto:
-    time.sleep(60)
-    st.rerun()
-
 # =========================
-# LER DADOS
+# LER DADOS (GitHub)
 # =========================
 try:
     file_bytes, meta = baixar_excel_bytes(RAW_XLSX_URL)
 except Exception as e:
     st.error("Não consegui baixar o Excel do GitHub (RAW).")
-    st.write("URL configurada:", RAW_XLSX_URL)
+    st.write("URL:", RAW_XLSX_URL)
     st.code(str(e))
     st.stop()
 
 st.markdown(
-    f"<div class='smallline'>Arquivo: <b>movimentos_estoque_dados.xlsx</b> | Tamanho: <b>{meta.get('len',0)} bytes</b> | "
-    f"ETag: <b>{meta.get('etag','-')}</b></div>",
+    f"<div class='smallline'>Arquivo: <b>movimentos_estoque_dados.xlsx</b> | "
+    f"Tamanho: <b>{meta.get('len',0)} bytes</b> | ETag: <b>{meta.get('etag','-')}</b></div>",
     unsafe_allow_html=True
 )
 
@@ -390,7 +370,7 @@ s_qtd  = get_series_by_letter(df0, COL_QTD)
 s_desc = get_series_by_letter(df0, COL_DESC)
 
 if s_hora is None or s_qtd is None or s_desc is None:
-    st.error("Não consegui localizar as colunas por letra (N/O/X) no Excel.")
+    st.error("Não consegui localizar as colunas por letra (N/O/X).")
     st.write("Qtd colunas:", df0.shape[1])
     st.write("Letras disponíveis:", excel_letters(df0.shape[1]))
     st.stop()

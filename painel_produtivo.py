@@ -2,146 +2,427 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+from zoneinfo import ZoneInfo  # Python 3.9+
 
-BASE_DIR = Path(__file__).parent
-ARQ = BASE_DIR / "movimentos_estoque_dados.xlsx"
-LOGO = BASE_DIR / "logo_empresa.png"
+# =========================
+# CONFIG
+# =========================
+st.set_page_config(page_title="Painel Performance Montagem", layout="wide")
 
-H_INICIO = 7
-H_FIM = 17
-H_ALMOCO = 12
-H_ALMOCO_DEST = 13
+BASE_DIR = Path(".")  # repo / Streamlit Cloud
+ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
+LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
-HORAS = [h for h in range(H_INICIO, H_FIM + 1) if h != H_ALMOCO]
+TZ_BR = ZoneInfo("America/Sao_Paulo")
 
-# ===== METAS =====
+# BASE DE CÁLCULO
+H_INICIO, H_FIM = 7, 17
+H_ALMOCO, H_ALMOCO_DEST = 12, 13
+HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
+
+META_22L = 15
 META_60L = 60
 
+# colunas por letra do Excel
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
 
-st.set_page_config(layout="wide")
-
-# ===== FUNÇÕES =====
-
-def excel_letters(n):
-    out = []
-    for i in range(n):
-        s = ""
-        x = i
-        while True:
-            s = chr(65 + x % 26) + s
-            x = x // 26 - 1
-            if x < 0:
-                break
-        out.append(s)
-    return out
-
-def col_by_letter(df, letter):
-    letters = excel_letters(df.shape[1])
-    return df.iloc[:, letters.index(letter)]
-
-def parse_hour(x):
-    try:
-        ts = pd.to_datetime(x)
-        return ts.hour
-    except:
-        try:
-            return int(str(x).split(":")[0])
-        except:
-            return None
-
-def meta_from_desc(desc):
-    d = str(desc).upper()
-
-    if "60L" in d:
-        return META_60L
-
-    return 0
-
-def build_table(df):
-    agg = df.groupby("HORA", as_index=False)["QTD"].sum()
-    base = pd.DataFrame({"HORA": HORAS})
-    base = base.merge(agg, how="left").fillna(0)
-    return base
-
-# ===== HEADER LIMPO =====
-
-col1, col2 = st.columns([6, 2])
-
-with col1:
-    if LOGO.exists():
-        st.image(str(LOGO), width=140)
-
-with col2:
-    st.markdown(
-        f"<div style='text-align:right; font-size:18px; color:#ff7a18;'>"
-        f"{datetime.now():%d/%m/%Y %H:%M:%S}</div>",
-        unsafe_allow_html=True
-    )
-
+# =========================
+# CSS (corrige tarja branca / topo cortado + TV)
+# =========================
 st.markdown(
-    "<h1 style='margin-top:-70px;'>Painel Performance Montagem</h1>",
-    unsafe_allow_html=True
-)
+    """
+    <style>
+      /* fundo preto geral */
+      html, body, #root, .stApp,
+      [data-testid="stAppViewContainer"], section.main, main, .block-container{
+        background:#000 !important; color:rgba(255,255,255,.92) !important;
+      }
 
-# ===== DADOS =====
+      /* remove header do streamlit (tarja) */
+      header[data-testid="stHeader"] { display:none !important; height:0 !important; }
+      [data-testid="stToolbar"] { display:none !important; height:0 !important; }
+      [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
-if not ARQ.exists():
-    st.error("Arquivo não encontrado.")
-    st.stop()
+      /* puxa o app pra cima pra não sobrar faixa branca */
+      .stApp { margin-top: -60px !important; }
+      .main .block-container { padding-top: 0.4rem !important; }
 
-df0 = pd.read_excel(ARQ, header=None)
+      /* TV sem rolagem */
+      html, body { height:100%; overflow:hidden !important; }
+      [data-testid="stAppViewContainer"] { height:100vh !important; overflow:hidden !important; }
+      section.main { height:100vh !important; overflow:hidden !important; }
+      .block-container {
+        height:100vh !important;
+        overflow:hidden !important;
+        padding-bottom:.10rem !important;
+        max-width: 1520px;
+      }
 
-hora = col_by_letter(df0, COL_HORA)
-qtd = col_by_letter(df0, COL_QTD)
-desc = col_by_letter(df0, COL_DESC)
+      :root{
+        --panel:rgba(255,255,255,.05);
+        --panel2:rgba(255,255,255,.03);
+        --stroke:rgba(255,255,255,.10);
+        --text:rgba(255,255,255,.92);
+        --muted:rgba(255,255,255,.65);
+        --orange:#ff7a18;
+        --green:#17c964;
+        --red:#ff4d4f;
+      }
 
-df = pd.DataFrame({
-    "HORA_RAW": hora,
-    "QTD": pd.to_numeric(qtd, errors="coerce").fillna(0),
-    "DESC": desc
-})
+      /* TOP BAR */
+      .brand-title{ font-size:30px; font-weight:950; margin:0; line-height:1.05; }
+      .upd{
+        background:var(--panel);
+        border:1px solid var(--stroke);
+        border-radius:12px;
+        padding:6px 10px;
+        min-width:250px;
+      }
+      .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
+      .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
-df["HORA"] = df["HORA_RAW"].apply(parse_hour)
+      /* KPI */
+      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 6px;}
+      .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
+      .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
+      .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
+      .kpi .u{ color:var(--orange); font-weight:950; font-size:11px; margin-top:3px;}
 
-df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
+      /* PANELS */
+      .panel{
+        background:var(--panel2);
+        border:1px solid var(--stroke);
+        border-radius:14px;
+        padding:8px;
+      }
 
-df["META_H"] = df["DESC"].apply(meta_from_desc)
+      /* Título do painel agora tem percentuais na mesma faixa */
+      .panel-title{
+        display:flex; align-items:center; justify-content:space-between;
+        gap:10px; margin:0 0 6px 0;
+      }
+      .panel-title h2{
+        margin:0; color:var(--orange); font-size:13px; font-weight:950; letter-spacing:.4px;
+      }
+      .pchips{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+      .pch{
+        background:rgba(255,255,255,.05);
+        border:1px solid rgba(255,255,255,.12);
+        border-radius:999px;
+        padding:4px 8px;
+        font-size:11px;
+        color:var(--muted);
+        white-space:nowrap;
+      }
+      .pch b{ color:var(--text); }
+      .pch .g{ color:var(--green); font-weight:950; }
+      .pch .o{ color:var(--orange); font-weight:950; }
 
-df = df[df["META_H"] > 0]
-df = df[df["HORA"].between(H_INICIO, H_FIM)]
+      .table-header{
+        display:grid; grid-template-columns:64px 60px 60px 60px 1fr;
+        gap:8px; padding:6px 6px;
+        border-bottom:1px solid var(--stroke);
+        color:var(--muted); font-weight:950; font-size:11px;
+      }
+      .row{
+        display:grid; grid-template-columns:64px 60px 60px 60px 1fr;
+        gap:8px; padding:6px 6px;
+        border-bottom:1px solid rgba(255,255,255,.07);
+        font-size:11px; align-items:center;
+      }
+      .pos{ color:var(--green); font-weight:950;}
+      .neg{ color:var(--red); font-weight:950;}
 
-# ===== FILTROS =====
+      .barwrap{
+        background:rgba(255,255,255,.07);
+        border:1px solid rgba(255,255,255,.10);
+        height:9px; border-radius:999px; overflow:hidden;
+      }
+      .bar{ height:100%; border-radius:999px;}
+      .bar.orange{ background:var(--orange); }
+      .bar.green{ background:var(--green); }
 
-df_60 = df[df["META_H"] == META_60L]
+      .smallnote{ color:var(--muted); font-size:10px; margin-top:2px;}
 
-base_60 = build_table(df_60)
+      /* FOOTER CHIPS */
+      .foot{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;}
+      .chip{
+        background:rgba(255,255,255,.05);
+        border:1px solid rgba(255,255,255,.10);
+        border-radius:999px;
+        padding:5px 8px;
+        font-size:11px;
+        color:var(--muted);
+      }
+      .chip b{ color:var(--text); }
+      .chip .o{ color:var(--orange); font-weight:950;}
+      .chip .g{ color:var(--green); font-weight:950;}
+      .chip .r{ color:var(--red); font-weight:950;}
 
-# ===== KPIs =====
-
-acum = base_60["QTD"].sum()
-meta_turno = META_60L * len(base_60)
-
-st.markdown(
-    f"""
-    <div style='display:flex; gap:20px;'>
-      <div>Total Dia<br><b style='font-size:28px'>{int(acum)}</b></div>
-      <div>Meta Turno<br><b style='font-size:28px'>{int(meta_turno)}</b></div>
-    </div>
+      .stButton>button{ border-radius:10px; font-weight:950; padding:.30rem .7rem; }
+      div[data-testid="stVerticalBlock"] > div { gap: .18rem; }
+    </style>
     """,
     unsafe_allow_html=True
 )
 
-# ===== TABELA =====
+# =========================
+# HELPERS
+# =========================
+def excel_letters(n_cols: int):
+    letters = []
+    for i in range(n_cols):
+        x = i
+        s = ""
+        while True:
+            s = chr(ord("A") + (x % 26)) + s
+            x = x // 26 - 1
+            if x < 0:
+                break
+        letters.append(s)
+    return letters
 
-st.markdown("### 60L — EMBUTIR / BANCADA")
+def get_series_by_letter(df_noheader: pd.DataFrame, letter: str):
+    letters = excel_letters(df_noheader.shape[1])
+    if letter not in letters:
+        return None
+    return df_noheader.iloc[:, letters.index(letter)]
 
-for _, r in base_60.iterrows():
-    h = int(r["HORA"])
-    qtd = float(r["QTD"])
-    delta = qtd - META_60L
-    perc = qtd / META_60L if META_60L else 0
+def parse_hour(x):
+    if pd.isna(x):
+        return None
+    try:
+        ts = pd.to_datetime(x, errors="coerce", dayfirst=True)
+        if pd.notna(ts):
+            return int(ts.hour)
+    except Exception:
+        pass
+    s = str(x).strip()
+    if not s:
+        return None
+    try:
+        return int(s.split(":")[0])
+    except Exception:
+        return None
 
-    st.write(f"{h:02d}:00  |  {int(qtd)}  |  Δ {delta:+.0f}  |  {perc:.0%}")
+def meta_from_desc(desc: str) -> int:
+    d = str(desc).upper()
+    if "22L" in d:
+        return META_22L
+    if "60L" in d:
+        return META_60L
+    return 0
+
+def horas_ate_agora():
+    agora = datetime.now(TZ_BR).hour
+    h_max = max(H_INICIO, min(agora, H_FIM))
+    horas = [h for h in range(H_INICIO, h_max + 1) if h != H_ALMOCO]
+    return horas if horas else [H_INICIO]
+
+def build_hour_table(df_line: pd.DataFrame):
+    agg = df_line.groupby("HORA", as_index=False)["QTD"].sum()
+    base = pd.DataFrame({"HORA": [h for h in HORAS_TURNO if h != H_ALMOCO]})
+    base = base.merge(agg, on="HORA", how="left").fillna({"QTD": 0})
+    base["HORA"] = base["HORA"].astype(int)
+    base["QTD"] = base["QTD"].astype(float)
+    return base.sort_values("HORA")
+
+def fmt_delta_html(x: float) -> str:
+    return f"<span class='g'>{x:+.0f}</span>" if x >= 0 else f"<span class='r'>{x:+.0f}</span>"
+
+def clamp(v, lo, hi):
+    return max(lo, min(hi, v))
+
+def calc_line_kpis(base_horas: pd.DataFrame, meta_h: int):
+    hn = horas_ate_agora()
+    acumulado = float(base_horas[base_horas["HORA"].isin(hn)]["QTD"].sum())
+    meta_acum = float(meta_h * len(hn))
+    realizado_pct = (acumulado / meta_acum * 100.0) if meta_acum > 0 else 0.0
+
+    ritmo = acumulado / max(1, len(hn))
+    proj_final = ritmo * len(base_horas)
+    meta_turno = float(meta_h * len(base_horas))
+    proj_pct = (proj_final / meta_turno * 100.0) if meta_turno > 0 else 0.0
+
+    return clamp(realizado_pct, 0, 999), clamp(proj_pct, 0, 999)
+
+def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
+    realizado_pct, proj_pct = calc_line_kpis(base_horas, meta_h)
+
+    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+
+    # título + % na mesma faixa
+    st.markdown(
+        f"""
+        <div class='panel-title'>
+          <h2>{title}</h2>
+          <div class='pchips'>
+            <div class='pch'>Realizado: <b class='g'>{realizado_pct:.0f}%</b></div>
+            <div class='pch'>Projeção: <b class='o'>{proj_pct:.0f}%</b></div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "<div class='table-header'><div>Hora</div><div>Qtd</div><div>Meta</div><div>Delta</div><div>Termômetro</div></div>",
+        unsafe_allow_html=True
+    )
+
+    for _, r in base_horas.iterrows():
+        h = int(r["HORA"])
+        qtd = float(r["QTD"])
+        meta = float(meta_h)
+        delta = qtd - meta
+        perc = (qtd / meta) if meta else 0
+        w = max(0, min(perc, 1.0)) * 100
+        bar_class = "green" if perc >= 1 else "orange"
+        delta_class = "pos" if delta >= 0 else "neg"
+        termo_txt = f"{int(qtd)}/{int(meta)} ({int(round(perc*100,0))}%)"
+
+        st.markdown(
+            f"""
+            <div class='row'>
+              <div>{h:02d}:00</div><div><b>{int(qtd)}</b></div><div>{int(meta)}</div>
+              <div class='{delta_class}'>{delta:+.0f}</div>
+              <div>
+                <div class='barwrap'><div class='bar {bar_class}' style='width:{w:.1f}%'></div></div>
+                <div class='smallnote'>{termo_txt}</div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    total = float(base_horas["QTD"].sum())
+    meta_turno = float(meta_h * len(base_horas))
+
+    hn = horas_ate_agora()
+    acumulado = float(base_horas[base_horas["HORA"].isin(hn)]["QTD"].sum())
+    meta_acum = float(meta_h * len(hn))
+    delta_acum = acumulado - meta_acum
+
+    ritmo = acumulado / max(1, len(hn))
+    proj_final = ritmo * len(base_horas)
+    delta_proj = proj_final - meta_turno
+
+    st.markdown(
+        f"""
+        <div class='foot'>
+          <div class='chip'>Acum.: <b class='o'>{int(acumulado)}</b></div>
+          <div class='chip'>Δ acum.: <b>{fmt_delta_html(delta_acum)}</b></div>
+          <div class='chip'>Proj.: <b>{int(round(proj_final,0))}</b></div>
+          <div class='chip'>Δ proj.: <b>{fmt_delta_html(delta_proj)}</b></div>
+          <div class='chip'>Total: <b class='o'>{int(total)}</b></div>
+          <div class='chip'>Meta: <b>{int(meta_turno)}</b></div>
+        </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+# =========================
+# LOAD DATA
+# =========================
+if not ARQ_LIMPO.exists():
+    st.error("Não encontrei movimentos_estoque_dados.xlsx no repositório.")
+    st.stop()
+
+mtime = ARQ_LIMPO.stat().st_mtime
+ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
+
+@st.cache_data(show_spinner=False)
+def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
+    return pd.read_excel(path, header=None)
+
+df0 = load_noheader(str(ARQ_LIMPO), mtime)
+
+s_hora = get_series_by_letter(df0, COL_HORA)
+s_qtd  = get_series_by_letter(df0, COL_QTD)
+s_desc = get_series_by_letter(df0, COL_DESC)
+
+if s_hora is None or s_qtd is None or s_desc is None:
+    st.error("Não consegui localizar as colunas por letra (N/O/X) no arquivo.")
+    st.stop()
+
+df = pd.DataFrame({"HORA_RAW": s_hora, "QTD_RAW": s_qtd, "DESC": s_desc}).dropna(how="all")
+df["HORA"] = df["HORA_RAW"].apply(parse_hour)
+df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
+df["META_H"] = df["DESC"].apply(meta_from_desc)
+
+df = df[df["META_H"].isin([META_22L, META_60L])].copy()
+df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
+df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
+
+df_22 = df[df["META_H"] == META_22L].copy()
+df_60 = df[df["META_H"] == META_60L].copy()
+
+base_22 = build_hour_table(df_22)
+base_60 = build_hour_table(df_60)
+
+# =========================
+# TOPO (logo + título + botão + hora)
+# =========================
+left, mid, right = st.columns([7, 1.5, 2.7], vertical_alignment="center")
+
+with left:
+    c1, c2 = st.columns([1.1, 5.9], vertical_alignment="center")
+    with c1:
+        if LOGO_PATH.exists():
+            st.image(str(LOGO_PATH), width=95)
+    with c2:
+        st.markdown("<div class='brand-title'>Painel Performance Montagem</div>", unsafe_allow_html=True)
+
+with mid:
+    if st.button("🔄 Atualizar"):
+        st.cache_data.clear()
+        st.rerun()
+
+with right:
+    st.markdown(
+        f"<div class='upd'><div class='lbl'>Última atualização</div><div class='val'>{ultima_atualizacao}</div></div>",
+        unsafe_allow_html=True
+    )
+
+# =========================
+# KPIs (TOTAL)
+# =========================
+total_dia = float(base_22["QTD"].sum() + base_60["QTD"].sum())
+horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
+meta_turno_total = float((META_22L + META_60L) * horas_exibidas)
+
+hn = horas_ate_agora()
+acum_total = float(
+    base_22[base_22["HORA"].isin(hn)]["QTD"].sum()
+    + base_60[base_60["HORA"].isin(hn)]["QTD"].sum()
+)
+meta_acum_total = float((META_22L + META_60L) * len(hn))
+delta_acum_total = acum_total - meta_acum_total
+
+ritmo = acum_total / max(1, len(hn))
+proj_final_total = ritmo * horas_exibidas
+delta_proj_total = proj_final_total - meta_turno_total
+
+k1, k2, k3, k4 = st.columns(4)
+with k1:
+    st.markdown(f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>", unsafe_allow_html=True)
+with k2:
+    cor = "var(--green)" if delta_acum_total >= 0 else "var(--red)"
+    st.markdown(f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>", unsafe_allow_html=True)
+with k3:
+    st.markdown(f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>", unsafe_allow_html=True)
+with k4:
+    cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
+    st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
+
+# =========================
+# PAINÉIS
+# =========================
+colA, colB = st.columns(2)
+with colA:
+    render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)
+with colB:
+    render_panel("22L — AIR FRYER (22L)", base_22, META_22L)

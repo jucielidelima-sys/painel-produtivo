@@ -3,6 +3,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo  # Python 3.9+
+
 # =========================
 # CONFIG
 # =========================
@@ -19,7 +20,7 @@ H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
-META_EMBUTIR = 10
+META_22L = 15
 META_60L = 60
 
 # colunas por letra do Excel
@@ -208,8 +209,8 @@ def parse_hour(x):
 
 def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
-    if "EMBUTIR" in d:
-        return META_EMBUTIR
+    if "22L" in d:
+        return META_22L
     if "60L" in d:
         return META_60L
     return 0
@@ -352,14 +353,14 @@ df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[df["META_H"].isin([META_EMBUTIR, META_60L])].copy()
+df = df[df["META_H"].isin([META_22L, META_60L])].copy()
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
-df_EMBUTIR = df[df["META_H"] == META_EMBUTIR].copy()
+df_22 = df[df["META_H"] == META_22L].copy()
 df_60 = df[df["META_H"] == META_60L].copy()
 
-base_EMBUTIR = build_hour_table(df_EMBUTIR)
+base_22 = build_hour_table(df_22)
 base_60 = build_hour_table(df_60)
 
 # =========================
@@ -389,16 +390,16 @@ with right:
 # =========================
 # KPIs (TOTAL)
 # =========================
-total_dia = float(base_EMBUTIR["QTD"].sum() + base_60["QTD"].sum())
+total_dia = float(base_22["QTD"].sum() + base_60["QTD"].sum())
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
-meta_turno_total = float((META_EMBUTIR + META_60L) * horas_exibidas)
+meta_turno_total = float((META_22L + META_60L) * horas_exibidas)
 
 hn = horas_ate_agora()
 acum_total = float(
-    base_EMBUTIR[base_EMBUTIR["HORA"].isin(hn)]["QTD"].sum()
+    base_22[base_22["HORA"].isin(hn)]["QTD"].sum()
     + base_60[base_60["HORA"].isin(hn)]["QTD"].sum()
 )
-meta_acum_total = float((META_EMBUTIR + META_60L) * len(hn))
+meta_acum_total = float((META_22L + META_60L) * len(hn))
 delta_acum_total = acum_total - meta_acum_total
 
 ritmo = acum_total / max(1, len(hn))
@@ -424,4 +425,4 @@ colA, colB = st.columns(2)
 with colA:
     render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)
 with colB:
-    render_panel("EMBUTIR — EMBUTIR", base_EMBUTIR, META_EMBUTIR)
+    render_panel("22L — AIR FRYER (22L)", base_22, META_22L)

@@ -1,28 +1,20 @@
-import hashlib
+import streamlit as st
+import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from zoneinfo import ZoneInfo
-
-import pandas as pd
-import streamlit as st
-
-# =========================================================
+from zoneinfo import ZoneInfo  # Python 3.9+
+# =========================
 # CONFIG
-# =========================================================
+# =========================
 st.set_page_config(page_title="Painel Performance Montagem", layout="wide")
 
-TZ_BR = ZoneInfo("America/Sao_Paulo")
-
-# ✅ sempre a pasta do .py (evita ler arquivo errado)
-BASE_DIR = Path(__file__).resolve().parent
-
+BASE_DIR = Path(".")  # repo / Streamlit Cloud
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
-# Auto-refresh (30 min) sem dependência
-AUTO_REFRESH_SECONDS = 30 * 60
+TZ_BR = ZoneInfo("America/Sao_Paulo")
 
-# Turno
+# BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
@@ -30,45 +22,33 @@ HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 META_EMBUTIR = 10
 META_60L = 60
 
-# ✅ Índices reais (0-based) para Excel lido com header=None
-# Excel: N=14ª -> 13 | O=15ª -> 14 | X=24ª -> 23
-IDX_QTD = 13   # N
-IDX_DESC = 14  # O
-IDX_HORA = 23  # X
+# colunas por letra do Excel
+COL_HORA = "X"
+COL_QTD = "N"
+COL_DESC = "O"
 
-# Mostrar debug (pode desligar depois)
-SHOW_DEBUG = True
-
-# =========================================================
-# AUTO-REFRESH (sem streamlit-autorefresh)
-# =========================================================
-st.markdown(
-    f"""
-    <script>
-      setTimeout(function() {{
-        window.location.reload();
-      }}, {AUTO_REFRESH_SECONDS * 1000});
-    </script>
-    """,
-    unsafe_allow_html=True,
-)
-
-# =========================================================
-# CSS
-# =========================================================
+# =========================
+# CSS (corrige tarja branca / topo cortado + TV)
+# =========================
 st.markdown(
     """
     <style>
+      /* fundo preto geral */
       html, body, #root, .stApp,
       [data-testid="stAppViewContainer"], section.main, main, .block-container{
         background:#000 !important; color:rgba(255,255,255,.92) !important;
       }
+
+      /* remove header do streamlit (tarja) */
       header[data-testid="stHeader"] { display:none !important; height:0 !important; }
       [data-testid="stToolbar"] { display:none !important; height:0 !important; }
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
+
+      /* puxa o app pra cima pra não sobrar faixa branca */
       .stApp { margin-top: -60px !important; }
       .main .block-container { padding-top: 0.4rem !important; }
 
+      /* TV sem rolagem */
       html, body { height:100%; overflow:hidden !important; }
       [data-testid="stAppViewContainer"] { height:100vh !important; overflow:hidden !important; }
       section.main { height:100vh !important; overflow:hidden !important; }
@@ -90,8 +70,8 @@ st.markdown(
         --red:#ff4d4f;
       }
 
+      /* TOP BAR */
       .brand-title{ font-size:30px; font-weight:950; margin:0; line-height:1.05; }
-
       .upd{
         background:var(--panel);
         border:1px solid var(--stroke);
@@ -102,11 +82,14 @@ st.markdown(
       .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
       .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
+      /* KPI */
+      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 6px;}
       .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
       .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
       .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
       .kpi .u{ color:var(--orange); font-weight:950; font-size:11px; margin-top:3px;}
 
+      /* PANELS */
       .panel{
         background:var(--panel2);
         border:1px solid var(--stroke);
@@ -114,6 +97,7 @@ st.markdown(
         padding:8px;
       }
 
+      /* Título do painel agora tem percentuais na mesma faixa */
       .panel-title{
         display:flex; align-items:center; justify-content:space-between;
         gap:10px; margin:0 0 6px 0;
@@ -161,6 +145,7 @@ st.markdown(
 
       .smallnote{ color:var(--muted); font-size:10px; margin-top:2px;}
 
+      /* FOOTER CHIPS */
       .foot{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;}
       .chip{
         background:rgba(255,255,255,.05);
@@ -176,36 +161,33 @@ st.markdown(
       .chip .r{ color:var(--red); font-weight:950;}
 
       .stButton>button{ border-radius:10px; font-weight:950; padding:.30rem .7rem; }
-
-      .dbg{
-        position:fixed; bottom:10px; left:10px; z-index:9999;
-        background:rgba(255,255,255,.06);
-        border:1px solid rgba(255,255,255,.15);
-        padding:10px;
-        border-radius:12px;
-        font-size:12px;
-        color:#fff;
-        max-width: 820px;
-        word-break: break-all;
-      }
+      div[data-testid="stVerticalBlock"] > div { gap: .18rem; }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# =========================================================
+# =========================
 # HELPERS
-# =========================================================
-def file_signature(path: Path):
-    stt = path.stat()
-    return (stt.st_mtime, stt.st_size)
+# =========================
+def excel_letters(n_cols: int):
+    letters = []
+    for i in range(n_cols):
+        x = i
+        s = ""
+        while True:
+            s = chr(ord("A") + (x % 26)) + s
+            x = x // 26 - 1
+            if x < 0:
+                break
+        letters.append(s)
+    return letters
 
-def md5_file(path: Path) -> str:
-    h = hashlib.md5()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
+def get_series_by_letter(df_noheader: pd.DataFrame, letter: str):
+    letters = excel_letters(df_noheader.shape[1])
+    if letter not in letters:
+        return None
+    return df_noheader.iloc[:, letters.index(letter)]
 
 def parse_hour(x):
     if pd.isna(x):
@@ -270,6 +252,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
 
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
 
+    # título + % na mesma faixa
     st.markdown(
         f"""
         <div class='panel-title'>
@@ -340,81 +323,35 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         unsafe_allow_html=True
     )
 
-# =========================================================
-# LOAD FILE + DEBUG
-# =========================================================
+# =========================
+# LOAD DATA
+# =========================
 if not ARQ_LIMPO.exists():
-    st.error(f"Não encontrei o arquivo: {ARQ_LIMPO}")
+    st.error("Não encontrei movimentos_estoque_dados.xlsx no repositório.")
     st.stop()
 
-sig = file_signature(ARQ_LIMPO)
-mtime, size = sig
+mtime = ARQ_LIMPO.stat().st_mtime
 ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
-md5 = md5_file(ARQ_LIMPO)
-
-if SHOW_DEBUG:
-    st.markdown(
-        f"""
-        <div class="dbg">
-          <div><b>DEBUG ARQUIVO (o painel está lendo ESTE arquivo)</b></div>
-          <div>Pasta app: {BASE_DIR}</div>
-          <div>Arquivo: {ARQ_LIMPO.name}</div>
-          <div>Path: {ARQ_LIMPO}</div>
-          <div>Modificado: {ultima_atualizacao}</div>
-          <div>Tamanho: {size} bytes</div>
-          <div>MD5: {md5}</div>
-          <div><b>IDX</b> HORA={IDX_HORA} | QTD={IDX_QTD} | DESC={IDX_DESC}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
 @st.cache_data(show_spinner=False)
-def load_noheader(path: str, sig, md5: str) -> pd.DataFrame:
+def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
     return pd.read_excel(path, header=None)
 
-# limpa cache quando arquivo muda de verdade
-last_key = st.session_state.get("last_key")
-key = (sig, md5)
-if last_key is not None and last_key != key:
-    st.cache_data.clear()
-st.session_state["last_key"] = key
+df0 = load_noheader(str(ARQ_LIMPO), mtime)
 
-df0 = load_noheader(str(ARQ_LIMPO), sig, md5)
+s_hora = get_series_by_letter(df0, COL_HORA)
+s_qtd  = get_series_by_letter(df0, COL_QTD)
+s_desc = get_series_by_letter(df0, COL_DESC)
 
-# =========================================================
-# Extract columns by index (robusto)
-# =========================================================
-ncols = df0.shape[1]
-if any(i >= ncols for i in [IDX_HORA, IDX_QTD, IDX_DESC]):
-    st.error(f"Arquivo tem {ncols} colunas, mas preciso de IDX {IDX_HORA}/{IDX_QTD}/{IDX_DESC}.")
+if s_hora is None or s_qtd is None or s_desc is None:
+    st.error("Não consegui localizar as colunas por letra (N/O/X) no arquivo.")
     st.stop()
 
-s_hora = df0.iloc[:, IDX_HORA]
-s_qtd = df0.iloc[:, IDX_QTD]
-s_desc = df0.iloc[:, IDX_DESC]
-
 df = pd.DataFrame({"HORA_RAW": s_hora, "QTD_RAW": s_qtd, "DESC": s_desc}).dropna(how="all")
-
-# cria colunas SEMPRE antes de qualquer debug
 df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-# =========================================================
-# DEBUG PRODUÇÃO (não quebra)
-# =========================================================
-if SHOW_DEBUG:
-    horas_unicas = sorted([int(h) for h in df["HORA"].dropna().unique().tolist() if str(h).isdigit()])
-    st.write("DEBUG df - linhas:", len(df))
-    st.write("DEBUG horas únicas (HORA):", horas_unicas)
-    st.write("DEBUG soma QTD (bruto):", float(df["QTD"].sum()))
-    st.write("DEBUG últimas 20 linhas QTD>0:")
-    st.dataframe(df[df["QTD"] > 0][["HORA_RAW", "HORA", "QTD_RAW", "QTD", "DESC"]].tail(20), use_container_width=True)
-
-# =========================================================
-# FILTROS
-# =========================================================
 df = df[df["META_H"].isin([META_EMBUTIR, META_60L])].copy()
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
@@ -425,9 +362,9 @@ df_60 = df[df["META_H"] == META_60L].copy()
 base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_60 = build_hour_table(df_60)
 
-# =========================================================
+# =========================
 # TOPO (logo + título + botão + hora)
-# =========================================================
+# =========================
 left, mid, right = st.columns([7, 1.5, 2.7], vertical_alignment="center")
 
 with left:
@@ -449,9 +386,9 @@ with right:
         unsafe_allow_html=True
     )
 
-# =========================================================
+# =========================
 # KPIs (TOTAL)
-# =========================================================
+# =========================
 total_dia = float(base_EMBUTIR["QTD"].sum() + base_60["QTD"].sum())
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
 meta_turno_total = float((META_EMBUTIR + META_60L) * horas_exibidas)
@@ -480,9 +417,9 @@ with k4:
     cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
     st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
 
-# =========================================================
+# =========================
 # PAINÉIS
-# =========================================================
+# =========================
 colA, colB = st.columns(2)
 with colA:
     render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)

@@ -402,6 +402,14 @@ s_qtd = df0.iloc[:, IDX_QTD]
 s_desc = df0.iloc[:, IDX_DESC]
 
 df = pd.DataFrame({"HORA_RAW": s_hora, "QTD_RAW": s_qtd, "DESC": s_desc}).dropna(how="all")
+st.write("DEBUG df - linhas:", len(df))
+st.write("DEBUG horas únicas:", sorted([h for h in df["HORA"].dropna().unique().tolist() if isinstance(h, (int, float))])[:30])
+st.write("DEBUG soma QTD (bruto):", float(df["QTD"].sum()))
+st.write("DEBUG últimas 20 linhas com QTD>0:")
+st.dataframe(
+    df[df["QTD"] > 0][["HORA", "QTD", "DESC"]].tail(20),
+    use_container_width=True
+)
 df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
@@ -479,3 +487,4 @@ with colA:
     render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)
 with colB:
     render_panel("EMBUTIR — EMBUTIR", base_EMBUTIR, META_EMBUTIR)
+

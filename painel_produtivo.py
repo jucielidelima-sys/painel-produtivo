@@ -1,18 +1,27 @@
-import streamlit as st
-import pandas as pd
+import hashlib
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo  # Python 3.9+
-# =========================
+
+import pandas as pd
+import streamlit as st
+
+# =========================================================
 # CONFIG
-# =========================
+# =========================================================
 st.set_page_config(page_title="Painel Performance Montagem", layout="wide")
 
-BASE_DIR = Path(".")  # repo / Streamlit Cloud
+TZ_BR = ZoneInfo("America/Sao_Paulo")
+
+# ✅ SEMPRE usa a pasta do arquivo .py (não depende do "onde você rodou")
+BASE_DIR = Path(__file__).resolve().parent
+
+# ✅ Arquivo alvo (confira o nome exato!)
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
-TZ_BR = ZoneInfo("America/Sao_Paulo")
+# Auto-refresh (30 min) sem dependências externas
+AUTO_REFRESH_SECONDS = 30 * 60
 
 # BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
@@ -22,33 +31,43 @@ HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 META_EMBUTIR = 10
 META_60L = 60
 
-# colunas por letra do Excel
+# colunas por letra do Excel (arquivo sem header)
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
 
-# =========================
+# =========================================================
+# AUTO-REFRESH (sem streamlit-autorefresh)
+# =========================================================
+st.markdown(
+    f"""
+    <script>
+      setTimeout(function() {{
+        window.location.reload();
+      }}, {AUTO_REFRESH_SECONDS * 1000});
+    </script>
+    """,
+    unsafe_allow_html=True,
+)
+
+# =========================================================
 # CSS (corrige tarja branca / topo cortado + TV)
-# =========================
+# =========================================================
 st.markdown(
     """
     <style>
-      /* fundo preto geral */
       html, body, #root, .stApp,
       [data-testid="stAppViewContainer"], section.main, main, .block-container{
         background:#000 !important; color:rgba(255,255,255,.92) !important;
       }
 
-      /* remove header do streamlit (tarja) */
       header[data-testid="stHeader"] { display:none !important; height:0 !important; }
       [data-testid="stToolbar"] { display:none !important; height:0 !important; }
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
-      /* puxa o app pra cima pra não sobrar faixa branca */
       .stApp { margin-top: -60px !important; }
       .main .block-container { padding-top: 0.4rem !important; }
 
-      /* TV sem rolagem */
       html, body { height:100%; overflow:hidden !important; }
       [data-testid="stAppViewContainer"] { height:100vh !important; overflow:hidden !important; }
       section.main { height:100vh !important; overflow:hidden !important; }
@@ -70,8 +89,8 @@ st.markdown(
         --red:#ff4d4f;
       }
 
-      /* TOP BAR */
       .brand-title{ font-size:30px; font-weight:950; margin:0; line-height:1.05; }
+
       .upd{
         background:var(--panel);
         border:1px solid var(--stroke);
@@ -82,14 +101,11 @@ st.markdown(
       .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
       .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
-      /* KPI */
-      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 6px;}
       .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
       .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
       .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
       .kpi .u{ color:var(--orange); font-weight:950; font-size:11px; margin-top:3px;}
 
-      /* PANELS */
       .panel{
         background:var(--panel2);
         border:1px solid var(--stroke);
@@ -97,7 +113,6 @@ st.markdown(
         padding:8px;
       }
 
-      /* Título do painel agora tem percentuais na mesma faixa */
       .panel-title{
         display:flex; align-items:center; justify-content:space-between;
         gap:10px; margin:0 0 6px 0;
@@ -145,7 +160,6 @@ st.markdown(
 
       .smallnote{ color:var(--muted); font-size:10px; margin-top:2px;}
 
-      /* FOOTER CHIPS */
       .foot{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;}
       .chip{
         background:rgba(255,255,255,.05);
@@ -162,14 +176,27 @@ st.markdown(
 
       .stButton>button{ border-radius:10px; font-weight:950; padding:.30rem .7rem; }
       div[data-testid="stVerticalBlock"] > div { gap: .18rem; }
+
+      /* DEBUG box */
+      .dbg{
+        position:fixed; bottom:10px; left:10px; z-index:9999;
+        background:rgba(255,255,255,.06);
+        border:1px solid rgba(255,255,255,.15);
+        padding:10px;
+        border-radius:12px;
+        font-size:12px;
+        color:#fff;
+        max-width: 820px;
+        word-break: break-all;
+      }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-# =========================
+# =========================================================
 # HELPERS
-# =========================
+# =========================================================
 def excel_letters(n_cols: int):
     letters = []
     for i in range(n_cols):
@@ -252,7 +279,6 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
 
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
 
-    # título + % na mesma faixa
     st.markdown(
         f"""
         <div class='panel-title'>
@@ -323,24 +349,65 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         unsafe_allow_html=True
     )
 
-# =========================
-# LOAD DATA
-# =========================
+def file_signature(path: Path):
+    stt = path.stat()
+    return (stt.st_mtime, stt.st_size)
+
+def md5_file(path: Path) -> str:
+    h = hashlib.md5()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+# =========================================================
+# LOAD DATA (robusto + DEBUG)
+# =========================================================
 if not ARQ_LIMPO.exists():
-    st.error("Não encontrei movimentos_estoque_dados.xlsx no repositório.")
+    st.error(f"Não encontrei o arquivo: {ARQ_LIMPO}")
     st.stop()
 
-mtime = ARQ_LIMPO.stat().st_mtime
+sig = file_signature(ARQ_LIMPO)
+mtime = sig[0]
+size = sig[1]
 ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
+md5 = md5_file(ARQ_LIMPO)
 
+# ✅ DEBUG na tela pra provar qual arquivo está lendo
+st.markdown(
+    f"""
+    <div class="dbg">
+      <div><b>DEBUG ARQUIVO (o painel está lendo ESTE arquivo)</b></div>
+      <div>Pasta app: {BASE_DIR}</div>
+      <div>Arquivo: {ARQ_LIMPO.name}</div>
+      <div>Path: {ARQ_LIMPO}</div>
+      <div>Modificado: {ultima_atualizacao}</div>
+      <div>Tamanho: {size} bytes</div>
+      <div>MD5: {md5}</div>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# ✅ leitura com cache invalidado por (mtime + size + md5)
 @st.cache_data(show_spinner=False)
-def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
+def load_noheader(path: str, sig, md5: str) -> pd.DataFrame:
     return pd.read_excel(path, header=None)
 
-df0 = load_noheader(str(ARQ_LIMPO), mtime)
+# Se mudou o arquivo desde o último run, limpa cache automaticamente
+last_key = st.session_state.get("last_key")
+key = (sig, md5)
+if last_key is not None and last_key != key:
+    st.cache_data.clear()
+st.session_state["last_key"] = key
 
+df0 = load_noheader(str(ARQ_LIMPO), sig, md5)
+
+# =========================================================
+# Extrai colunas por letra
+# =========================================================
 s_hora = get_series_by_letter(df0, COL_HORA)
-s_qtd  = get_series_by_letter(df0, COL_QTD)
+s_qtd = get_series_by_letter(df0, COL_QTD)
 s_desc = get_series_by_letter(df0, COL_DESC)
 
 if s_hora is None or s_qtd is None or s_desc is None:
@@ -362,9 +429,9 @@ df_60 = df[df["META_H"] == META_60L].copy()
 base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_60 = build_hour_table(df_60)
 
-# =========================
+# =========================================================
 # TOPO (logo + título + botão + hora)
-# =========================
+# =========================================================
 left, mid, right = st.columns([7, 1.5, 2.7], vertical_alignment="center")
 
 with left:
@@ -386,9 +453,9 @@ with right:
         unsafe_allow_html=True
     )
 
-# =========================
+# =========================================================
 # KPIs (TOTAL)
-# =========================
+# =========================================================
 total_dia = float(base_EMBUTIR["QTD"].sum() + base_60["QTD"].sum())
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
 meta_turno_total = float((META_EMBUTIR + META_60L) * horas_exibidas)
@@ -407,19 +474,31 @@ delta_proj_total = proj_final_total - meta_turno_total
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
-    st.markdown(f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>",
+        unsafe_allow_html=True
+    )
 with k2:
     cor = "var(--green)" if delta_acum_total >= 0 else "var(--red)"
-    st.markdown(f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>",
+        unsafe_allow_html=True
+    )
 with k3:
-    st.markdown(f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>",
+        unsafe_allow_html=True
+    )
 with k4:
     cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
-    st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
+    st.markdown(
+        f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>",
+        unsafe_allow_html=True
+    )
 
-# =========================
+# =========================================================
 # PAINÉIS
-# =========================
+# =========================================================
 colA, colB = st.columns(2)
 with colA:
     render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)

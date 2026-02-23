@@ -16,7 +16,7 @@ TZ_BR = ZoneInfo("America/Sao_Paulo")
 # ✅ SEMPRE usa a pasta do arquivo .py (não depende do "onde você rodou")
 BASE_DIR = Path(__file__).resolve().parent
 
-# ✅ Arquivo alvo (confira o nome exato!)
+# ✅ Arquivo alvo
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
@@ -31,10 +31,13 @@ HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 META_EMBUTIR = 10
 META_60L = 60
 
-# colunas por letra do Excel (arquivo sem header)
-COL_HORA = "X"
-COL_QTD = "N"
-COL_DESC = "O"
+# ✅ ÍNDICES REAIS (0-based) DAS COLUNAS NO df0 (header=None)
+# N = 14ª coluna do Excel => índice 13
+# O = 15ª coluna do Excel => índice 14
+# X = 24ª coluna do Excel => índice 23
+IDX_QTD = 13   # N
+IDX_DESC = 14  # O
+IDX_HORA = 23  # X
 
 # =========================================================
 # AUTO-REFRESH (sem streamlit-autorefresh)
@@ -175,9 +178,7 @@ st.markdown(
       .chip .r{ color:var(--red); font-weight:950;}
 
       .stButton>button{ border-radius:10px; font-weight:950; padding:.30rem .7rem; }
-      div[data-testid="stVerticalBlock"] > div { gap: .18rem; }
 
-      /* DEBUG box */
       .dbg{
         position:fixed; bottom:10px; left:10px; z-index:9999;
         background:rgba(255,255,255,.06);
@@ -197,25 +198,6 @@ st.markdown(
 # =========================================================
 # HELPERS
 # =========================================================
-def excel_letters(n_cols: int):
-    letters = []
-    for i in range(n_cols):
-        x = i
-        s = ""
-        while True:
-            s = chr(ord("A") + (x % 26)) + s
-            x = x // 26 - 1
-            if x < 0:
-                break
-        letters.append(s)
-    return letters
-
-def get_series_by_letter(df_noheader: pd.DataFrame, letter: str):
-    letters = excel_letters(df_noheader.shape[1])
-    if letter not in letters:
-        return None
-    return df_noheader.iloc[:, letters.index(letter)]
-
 def parse_hour(x):
     if pd.isna(x):
         return None
@@ -373,7 +355,7 @@ size = sig[1]
 ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
 md5 = md5_file(ARQ_LIMPO)
 
-# ✅ DEBUG na tela pra provar qual arquivo está lendo
+# DEBUG
 st.markdown(
     f"""
     <div class="dbg">
@@ -384,17 +366,17 @@ st.markdown(
       <div>Modificado: {ultima_atualizacao}</div>
       <div>Tamanho: {size} bytes</div>
       <div>MD5: {md5}</div>
+      <div><b>IDX</b> HORA={IDX_HORA} | QTD={IDX_QTD} | DESC={IDX_DESC}</div>
     </div>
     """,
     unsafe_allow_html=True
 )
 
-# ✅ leitura com cache invalidado por (mtime + size + md5)
 @st.cache_data(show_spinner=False)
 def load_noheader(path: str, sig, md5: str) -> pd.DataFrame:
     return pd.read_excel(path, header=None)
 
-# Se mudou o arquivo desde o último run, limpa cache automaticamente
+# limpa cache automático quando muda
 last_key = st.session_state.get("last_key")
 key = (sig, md5)
 if last_key is not None and last_key != key:
@@ -404,15 +386,20 @@ st.session_state["last_key"] = key
 df0 = load_noheader(str(ARQ_LIMPO), sig, md5)
 
 # =========================================================
-# Extrai colunas por letra
+# Extrai colunas POR ÍNDICE (robusto)
 # =========================================================
-s_hora = get_series_by_letter(df0, COL_HORA)
-s_qtd = get_series_by_letter(df0, COL_QTD)
-s_desc = get_series_by_letter(df0, COL_DESC)
-
-if s_hora is None or s_qtd is None or s_desc is None:
-    st.error("Não consegui localizar as colunas por letra (N/O/X) no arquivo.")
+ncols = df0.shape[1]
+needed = [IDX_HORA, IDX_QTD, IDX_DESC]
+if any(i >= ncols for i in needed):
+    st.error(
+        f"Arquivo tem {ncols} colunas, mas preciso de índices {needed}. "
+        f"Verifique se o Excel exportado mudou estrutura."
+    )
     st.stop()
+
+s_hora = df0.iloc[:, IDX_HORA]
+s_qtd = df0.iloc[:, IDX_QTD]
+s_desc = df0.iloc[:, IDX_DESC]
 
 df = pd.DataFrame({"HORA_RAW": s_hora, "QTD_RAW": s_qtd, "DESC": s_desc}).dropna(how="all")
 df["HORA"] = df["HORA_RAW"].apply(parse_hour)
@@ -474,27 +461,15 @@ delta_proj_total = proj_final_total - meta_turno_total
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
-    st.markdown(
-        f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>", unsafe_allow_html=True)
 with k2:
     cor = "var(--green)" if delta_acum_total >= 0 else "var(--red)"
-    st.markdown(
-        f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>", unsafe_allow_html=True)
 with k3:
-    st.markdown(
-        f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>", unsafe_allow_html=True)
 with k4:
     cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
-    st.markdown(
-        f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
 
 # =========================================================
 # PAINÉIS

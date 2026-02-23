@@ -1,71 +1,55 @@
-import time
+import streamlit as st
+import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo  # Python 3.9+
 
-import pandas as pd
-import streamlit as st
-
-# =========================================================
+# =========================
 # CONFIG
-# =========================================================
+# =========================
 st.set_page_config(page_title="Painel Performance Montagem", layout="wide")
 
-BASE_DIR = Path(".")  # mesma pasta do app.py no deploy
+BASE_DIR = Path(".")  # repo / Streamlit Cloud
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
 TZ_BR = ZoneInfo("America/Sao_Paulo")
-
-# Auto-refresh (30 min) SEM dependência externa ✅
-AUTO_REFRESH_SECONDS = 30 * 60
 
 # BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
-META_EMBUTIR = 10
+META_22L = 15
 META_60L = 60
 
-# Colunas por letra do Excel (arquivo sem header)
+# colunas por letra do Excel
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
 
-# =========================================================
-# AUTO REFRESH (SEM pacote)
-# =========================================================
-# dispara rerun a cada AUTO_REFRESH_SECONDS usando JS (fallback simples)
-st.markdown(
-    f"""
-    <script>
-      setTimeout(function() {{
-        window.location.reload();
-      }}, {AUTO_REFRESH_SECONDS * 1000});
-    </script>
-    """,
-    unsafe_allow_html=True,
-)
-
-# =========================================================
-# CSS (tarja / topo / TV)
-# =========================================================
+# =========================
+# CSS (corrige tarja branca / topo cortado + TV)
+# =========================
 st.markdown(
     """
     <style>
+      /* fundo preto geral */
       html, body, #root, .stApp,
       [data-testid="stAppViewContainer"], section.main, main, .block-container{
         background:#000 !important; color:rgba(255,255,255,.92) !important;
       }
 
+      /* remove header do streamlit (tarja) */
       header[data-testid="stHeader"] { display:none !important; height:0 !important; }
       [data-testid="stToolbar"] { display:none !important; height:0 !important; }
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
+      /* puxa o app pra cima pra não sobrar faixa branca */
       .stApp { margin-top: -60px !important; }
       .main .block-container { padding-top: 0.4rem !important; }
 
+      /* TV sem rolagem */
       html, body { height:100%; overflow:hidden !important; }
       [data-testid="stAppViewContainer"] { height:100vh !important; overflow:hidden !important; }
       section.main { height:100vh !important; overflow:hidden !important; }
@@ -87,8 +71,8 @@ st.markdown(
         --red:#ff4d4f;
       }
 
+      /* TOP BAR */
       .brand-title{ font-size:30px; font-weight:950; margin:0; line-height:1.05; }
-
       .upd{
         background:var(--panel);
         border:1px solid var(--stroke);
@@ -99,11 +83,14 @@ st.markdown(
       .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
       .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
+      /* KPI */
+      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 6px;}
       .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
       .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
       .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
       .kpi .u{ color:var(--orange); font-weight:950; font-size:11px; margin-top:3px;}
 
+      /* PANELS */
       .panel{
         background:var(--panel2);
         border:1px solid var(--stroke);
@@ -111,6 +98,7 @@ st.markdown(
         padding:8px;
       }
 
+      /* Título do painel agora tem percentuais na mesma faixa */
       .panel-title{
         display:flex; align-items:center; justify-content:space-between;
         gap:10px; margin:0 0 6px 0;
@@ -158,6 +146,7 @@ st.markdown(
 
       .smallnote{ color:var(--muted); font-size:10px; margin-top:2px;}
 
+      /* FOOTER CHIPS */
       .foot{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;}
       .chip{
         background:rgba(255,255,255,.05);
@@ -179,9 +168,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# =========================================================
+# =========================
 # HELPERS
-# =========================================================
+# =========================
 def excel_letters(n_cols: int):
     letters = []
     for i in range(n_cols):
@@ -220,8 +209,8 @@ def parse_hour(x):
 
 def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
-    if "EMBUTIR" in d:
-        return META_EMBUTIR
+    if "22L" in d:
+        return META_22L
     if "60L" in d:
         return META_60L
     return 0
@@ -264,6 +253,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
 
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
 
+    # título + % na mesma faixa
     st.markdown(
         f"""
         <div class='panel-title'>
@@ -334,36 +324,22 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         unsafe_allow_html=True
     )
 
-# =========================================================
-# LOAD DATA (robusto: mtime + size + limpeza automática)
-# =========================================================
-def file_signature(path: Path):
-    stt = path.stat()
-    return (stt.st_mtime, stt.st_size)
-
+# =========================
+# LOAD DATA
+# =========================
 if not ARQ_LIMPO.exists():
     st.error("Não encontrei movimentos_estoque_dados.xlsx no repositório.")
     st.stop()
 
-sig = file_signature(ARQ_LIMPO)
-mtime = sig[0]
+mtime = ARQ_LIMPO.stat().st_mtime
 ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
 
 @st.cache_data(show_spinner=False)
-def load_noheader(path: str, sig):
+def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
     return pd.read_excel(path, header=None)
 
-# Se mudou o arquivo desde o último run, limpa cache automaticamente
-last_sig = st.session_state.get("last_sig")
-if last_sig is not None and last_sig != sig:
-    st.cache_data.clear()
-st.session_state["last_sig"] = sig
+df0 = load_noheader(str(ARQ_LIMPO), mtime)
 
-df0 = load_noheader(str(ARQ_LIMPO), sig)
-
-# =========================================================
-# Extrai colunas por letra
-# =========================================================
 s_hora = get_series_by_letter(df0, COL_HORA)
 s_qtd  = get_series_by_letter(df0, COL_QTD)
 s_desc = get_series_by_letter(df0, COL_DESC)
@@ -377,19 +353,19 @@ df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[df["META_H"].isin([META_EMBUTIR, META_60L])].copy()
+df = df[df["META_H"].isin([META_22L, META_60L])].copy()
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
-df_EMBUTIR = df[df["META_H"] == META_EMBUTIR].copy()
+df_22 = df[df["META_H"] == META_22L].copy()
 df_60 = df[df["META_H"] == META_60L].copy()
 
-base_EMBUTIR = build_hour_table(df_EMBUTIR)
+base_22 = build_hour_table(df_22)
 base_60 = build_hour_table(df_60)
 
-# =========================================================
+# =========================
 # TOPO (logo + título + botão + hora)
-# =========================================================
+# =========================
 left, mid, right = st.columns([7, 1.5, 2.7], vertical_alignment="center")
 
 with left:
@@ -411,19 +387,19 @@ with right:
         unsafe_allow_html=True
     )
 
-# =========================================================
+# =========================
 # KPIs (TOTAL)
-# =========================================================
-total_dia = float(base_EMBUTIR["QTD"].sum() + base_60["QTD"].sum())
+# =========================
+total_dia = float(base_22["QTD"].sum() + base_60["QTD"].sum())
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
-meta_turno_total = float((META_EMBUTIR + META_60L) * horas_exibidas)
+meta_turno_total = float((META_22L + META_60L) * horas_exibidas)
 
 hn = horas_ate_agora()
 acum_total = float(
-    base_EMBUTIR[base_EMBUTIR["HORA"].isin(hn)]["QTD"].sum()
+    base_22[base_22["HORA"].isin(hn)]["QTD"].sum()
     + base_60[base_60["HORA"].isin(hn)]["QTD"].sum()
 )
-meta_acum_total = float((META_EMBUTIR + META_60L) * len(hn))
+meta_acum_total = float((META_22L + META_60L) * len(hn))
 delta_acum_total = acum_total - meta_acum_total
 
 ritmo = acum_total / max(1, len(hn))
@@ -442,11 +418,11 @@ with k4:
     cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
     st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
 
-# =========================================================
+# =========================
 # PAINÉIS
-# =========================================================
+# =========================
 colA, colB = st.columns(2)
 with colA:
     render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)
 with colB:
-    render_panel("EMBUTIR — EMBUTIR", base_EMBUTIR, META_EMBUTIR)
+    render_panel("22L — AIR FRYER (22L)", base_22, META_22L)

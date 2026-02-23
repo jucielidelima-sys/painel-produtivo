@@ -1,25 +1,24 @@
-import os
+import time
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo  # Python 3.9+
 
 import pandas as pd
 import streamlit as st
-from streamlit_autorefresh import st_autorefresh
 
 # =========================================================
 # CONFIG
 # =========================================================
 st.set_page_config(page_title="Painel Performance Montagem", layout="wide")
 
-BASE_DIR = Path(".")  # repo / mesma pasta do app.py
+BASE_DIR = Path(".")  # mesma pasta do app.py no deploy
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
 TZ_BR = ZoneInfo("America/Sao_Paulo")
 
-# Auto-refresh (30 min)  ✅
-st_autorefresh(interval=30 * 60 * 1000, key="auto_refresh_30min")
+# Auto-refresh (30 min) SEM dependência externa ✅
+AUTO_REFRESH_SECONDS = 30 * 60
 
 # BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
@@ -33,6 +32,21 @@ META_60L = 60
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
+
+# =========================================================
+# AUTO REFRESH (SEM pacote)
+# =========================================================
+# dispara rerun a cada AUTO_REFRESH_SECONDS usando JS (fallback simples)
+st.markdown(
+    f"""
+    <script>
+      setTimeout(function() {{
+        window.location.reload();
+      }}, {AUTO_REFRESH_SECONDS * 1000});
+    </script>
+    """,
+    unsafe_allow_html=True,
+)
 
 # =========================================================
 # CSS (tarja / topo / TV)
@@ -85,7 +99,6 @@ st.markdown(
       .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
       .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
-      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 6px;}
       .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
       .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
       .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
@@ -322,7 +335,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     )
 
 # =========================================================
-# LOAD DATA (robusto: assinatura mtime + size + limpeza automática)
+# LOAD DATA (robusto: mtime + size + limpeza automática)
 # =========================================================
 def file_signature(path: Path):
     stt = path.stat()
@@ -338,7 +351,6 @@ ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y 
 
 @st.cache_data(show_spinner=False)
 def load_noheader(path: str, sig):
-    # sig entra só para invalidar o cache quando o arquivo mudar
     return pd.read_excel(path, header=None)
 
 # Se mudou o arquivo desde o último run, limpa cache automaticamente
@@ -420,27 +432,15 @@ delta_proj_total = proj_final_total - meta_turno_total
 
 k1, k2, k3, k4 = st.columns(4)
 with k1:
-    st.markdown(
-        f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>", unsafe_allow_html=True)
 with k2:
     cor = "var(--green)" if delta_acum_total >= 0 else "var(--red)"
-    st.markdown(
-        f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>", unsafe_allow_html=True)
 with k3:
-    st.markdown(
-        f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>", unsafe_allow_html=True)
 with k4:
     cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
-    st.markdown(
-        f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
 
 # =========================================================
 # PAINÉIS

@@ -3,7 +3,10 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo  # Python 3.9+
+from streamlit_autorefresh import st_autorefresh
 
+# força rerun a cada 30 minutos
+st_autorefresh(interval=30 * 60 * 1000, key="auto_refresh_30min")
 # =========================
 # CONFIG
 # =========================
@@ -426,4 +429,5 @@ with colA:
     render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)
 with colB:
     render_panel("EMBUTIR — EMBUTIR", base_EMBUTIR, META_EMBUTIR)
+
 

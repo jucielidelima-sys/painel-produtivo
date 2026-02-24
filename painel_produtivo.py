@@ -20,8 +20,8 @@ H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
-META_22L = 15
-META_60L = 60
+META_EMBUTIR = 10
+META_45L = 60
 
 # colunas por letra do Excel
 COL_HORA = "X"
@@ -209,10 +209,10 @@ def parse_hour(x):
 
 def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
-    if "22L" in d:
-        return META_22L
+    if "EMBUTIR" in d:
+        return META_EMBUTIR
     if "60L" in d:
-        return META_60L
+        return META_45L
     return 0
 
 def horas_ate_agora():
@@ -390,16 +390,16 @@ with right:
 # =========================
 # KPIs (TOTAL)
 # =========================
-total_dia = float(base_22["QTD"].sum() + base_60["QTD"].sum())
+total_dia = float(base_EMBUTIR["QTD"].sum() + base_45["QTD"].sum())
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
-meta_turno_total = float((META_22L + META_60L) * horas_exibidas)
+meta_turno_total = float((META_EMBUTIR + META_45L) * horas_exibidas)
 
 hn = horas_ate_agora()
 acum_total = float(
-    base_22[base_22["HORA"].isin(hn)]["QTD"].sum()
-    + base_60[base_60["HORA"].isin(hn)]["QTD"].sum()
+    base_EMBUTIR[base_EMBUTIR["HORA"].isin(hn)]["QTD"].sum()
+    + base_45[base_45["HORA"].isin(hn)]["QTD"].sum()
 )
-meta_acum_total = float((META_22L + META_60L) * len(hn))
+meta_acum_total = float((META_EMBUTIR + META_45L) * len(hn))
 delta_acum_total = acum_total - meta_acum_total
 
 ritmo = acum_total / max(1, len(hn))
@@ -423,6 +423,7 @@ with k4:
 # =========================
 colA, colB = st.columns(2)
 with colA:
-    render_panel("60L — FORNOS DE BANCADA", base_60, META_60L)
+    render_panel("45L — FORNOS DE BANCADA", base_45, META_45L)
 with colB:
-    render_panel("22L — AIR FRYER (22L)", base_22, META_22L)
+    render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
+

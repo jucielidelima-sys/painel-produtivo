@@ -7,7 +7,11 @@ from zoneinfo import ZoneInfo  # Python 3.9+
 # =========================
 # CONFIG
 # =========================
-st.set_page_config(page_title="Painel Performance Montagem", layout="wide")
+st.set_page_config(
+    page_title="Painel Performance Montagem",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 BASE_DIR = Path(".")  # repo / Streamlit Cloud
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
@@ -29,7 +33,7 @@ COL_QTD = "N"
 COL_DESC = "O"
 
 # =========================
-# CSS (corrige tarja branca / topo cortado + TV)
+# CSS (RESPONSIVO: TV + CELULAR)
 # =========================
 st.markdown(
     """
@@ -45,20 +49,8 @@ st.markdown(
       [data-testid="stToolbar"] { display:none !important; height:0 !important; }
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
-      /* puxa o app pra cima pra não sobrar faixa branca */
-      .stApp { margin-top: -60px !important; }
-      .main .block-container { padding-top: 0.4rem !important; }
-
-      /* TV sem rolagem */
-      html, body { height:100%; overflow:hidden !important; }
-      [data-testid="stAppViewContainer"] { height:100vh !important; overflow:hidden !important; }
-      section.main { height:100vh !important; overflow:hidden !important; }
-      .block-container {
-        height:100vh !important;
-        overflow:hidden !important;
-        padding-bottom:.10rem !important;
-        max-width: 1520px;
-      }
+      /* container padrão */
+      .main .block-container { padding-top: .4rem !important; padding-bottom: .6rem !important; max-width: 1520px; }
 
       :root{
         --panel:rgba(255,255,255,.05);
@@ -83,8 +75,8 @@ st.markdown(
       .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
       .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
-      /* KPI */
-      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:4px 0 6px;}
+      /* KPI GRID (usar HTML) */
+      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:6px 0 8px;}
       .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
       .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
       .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
@@ -96,9 +88,9 @@ st.markdown(
         border:1px solid var(--stroke);
         border-radius:14px;
         padding:8px;
+        margin-bottom: 10px;
       }
 
-      /* Título do painel agora tem percentuais na mesma faixa */
       .panel-title{
         display:flex; align-items:center; justify-content:space-between;
         gap:10px; margin:0 0 6px 0;
@@ -163,9 +155,61 @@ st.markdown(
 
       .stButton>button{ border-radius:10px; font-weight:950; padding:.30rem .7rem; }
       div[data-testid="stVerticalBlock"] > div { gap: .18rem; }
+
+      /* ====== MODO TV (sem rolagem) ======
+         ATENÇÃO: aplicamos via classe no body usando um "hack" de CSS (default: ligado)
+      */
+      body.tv-mode, body.tv-mode html {
+        overflow:hidden !important;
+      }
+      body.tv-mode [data-testid="stAppViewContainer"],
+      body.tv-mode section.main,
+      body.tv-mode .block-container{
+        height:100vh !important;
+        overflow:hidden !important;
+      }
+
+      /* =========================
+         MOBILE AJUSTES
+         ========================= */
+      @media (max-width: 768px) {
+        /* no celular precisa rolar */
+        html, body { height:auto !important; overflow:auto !important; }
+        [data-testid="stAppViewContainer"], section.main, .block-container{
+          height:auto !important; overflow:visible !important;
+        }
+
+        .main .block-container{
+          padding-left: .75rem !important;
+          padding-right: .75rem !important;
+          max-width: 100% !important;
+        }
+
+        .brand-title{ font-size:20px; }
+        .upd{ min-width: unset; width: 100%; }
+
+        /* KPIs: 4 -> 2 colunas */
+        .kpi-grid{ grid-template-columns:repeat(2,1fr); gap:8px; }
+        .kpi .v{ font-size:20px; }
+
+        /* tabela compacta */
+        .table-header{ grid-template-columns:56px 44px 44px 50px 1fr; font-size:10px; }
+        .row{ grid-template-columns:56px 44px 44px 50px 1fr; font-size:10px; }
+
+        .smallnote{ font-size:9px; }
+        .chip{ font-size:10px; padding:4px 7px; }
+
+        /* desliga modo TV no celular */
+        body.tv-mode [data-testid="stAppViewContainer"],
+        body.tv-mode section.main,
+        body.tv-mode .block-container{
+          height:auto !important;
+          overflow:visible !important;
+        }
+      }
     </style>
     """,
-    unsafe_allow_html=True
+    unsafe_allow_html=True,
 )
 
 # =========================
@@ -253,7 +297,6 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
 
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
 
-    # título + % na mesma faixa
     st.markdown(
         f"""
         <div class='panel-title'>
@@ -264,12 +307,12 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
           </div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     st.markdown(
         "<div class='table-header'><div>Hora</div><div>Qtd</div><div>Meta</div><div>Delta</div><div>Termômetro</div></div>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     for _, r in base_horas.iterrows():
@@ -294,7 +337,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
               </div>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     total = float(base_horas["QTD"].sum())
@@ -321,7 +364,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         </div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 # =========================
@@ -364,31 +407,48 @@ base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_45 = build_hour_table(df_45)
 
 # =========================
-# TOPO (logo + título + botão + hora)
+# CONTROLES (modo)
 # =========================
-left, mid, right = st.columns([7, 1.5, 2.7], vertical_alignment="center")
+c_mode1, c_mode2 = st.columns([1, 2], vertical_alignment="center")
+with c_mode1:
+    modo_mobile = st.toggle("Modo celular (1 coluna)", value=True)
+with c_mode2:
+    modo_tv = st.toggle("Modo TV (sem rolagem)", value=False)
 
-with left:
-    c1, c2 = st.columns([1.1, 5.9], vertical_alignment="center")
+# aplica "classe" tv-mode (hack CSS via markdown)
+# (quando modo_tv=True, tentamos travar rolagem em telas grandes; no mobile o @media já libera)
+if modo_tv:
+    st.markdown("<script>document.body.classList.add('tv-mode');</script>", unsafe_allow_html=True)
+else:
+    st.markdown("<script>document.body.classList.remove('tv-mode');</script>", unsafe_allow_html=True)
+
+# =========================
+# TOPO (logo + título + botão + hora) RESPONSIVO
+# =========================
+top1, top2 = st.columns([1.2, 1], vertical_alignment="center")
+
+with top1:
+    c1, c2 = st.columns([1.2, 5.8], vertical_alignment="center")
     with c1:
         if LOGO_PATH.exists():
-            st.image(str(LOGO_PATH), width=95)
+            st.image(str(LOGO_PATH), width=70)
     with c2:
         st.markdown("<div class='brand-title'>Painel Performance Montagem</div>", unsafe_allow_html=True)
 
-with mid:
-    if st.button("🔄 Atualizar"):
-        st.cache_data.clear()
-        st.rerun()
-
-with right:
-    st.markdown(
-        f"<div class='upd'><div class='lbl'>Última atualização</div><div class='val'>{ultima_atualizacao}</div></div>",
-        unsafe_allow_html=True
-    )
+with top2:
+    a, b = st.columns([1, 1], vertical_alignment="center")
+    with a:
+        if st.button("🔄 Atualizar"):
+            st.cache_data.clear()
+            st.rerun()
+    with b:
+        st.markdown(
+            f"<div class='upd'><div class='lbl'>Última atualização</div><div class='val'>{ultima_atualizacao}</div></div>",
+            unsafe_allow_html=True,
+        )
 
 # =========================
-# KPIs (TOTAL)
+# KPIs (TOTAL) - HTML GRID RESPONSIVO
 # =========================
 total_dia = float(base_EMBUTIR["QTD"].sum() + base_45["QTD"].sum())
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
@@ -406,25 +466,40 @@ ritmo = acum_total / max(1, len(hn))
 proj_final_total = ritmo * horas_exibidas
 delta_proj_total = proj_final_total - meta_turno_total
 
-k1, k2, k3, k4 = st.columns(4)
-with k1:
-    st.markdown(f"<div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>", unsafe_allow_html=True)
-with k2:
-    cor = "var(--green)" if delta_acum_total >= 0 else "var(--red)"
-    st.markdown(f"<div class='kpi'><div class='t'>DELTA ACUMULADO</div><div class='v' style='color:{cor};'>{int(delta_acum_total):+d}</div><div class='u'>Meta até agora</div></div>", unsafe_allow_html=True)
-with k3:
-    st.markdown(f"<div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>", unsafe_allow_html=True)
-with k4:
-    cor = "var(--green)" if delta_proj_total >= 0 else "var(--red)"
-    st.markdown(f"<div class='kpi'><div class='t'>DELTA PROJEÇÃO</div><div class='v' style='color:{cor};'>{int(round(delta_proj_total,0)):+d}</div><div class='u'>Proj - Meta</div></div>", unsafe_allow_html=True)
+st.markdown(
+    f"""
+    <div class="kpi-grid">
+      <div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>
+
+      <div class='kpi'><div class='t'>DELTA ACUMULADO</div>
+        <div class='v' style='color:{"var(--green)" if delta_acum_total >= 0 else "var(--red)"};'>
+          {int(delta_acum_total):+d}
+        </div>
+        <div class='u'>Meta até agora</div>
+      </div>
+
+      <div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>
+
+      <div class='kpi'><div class='t'>DELTA PROJEÇÃO</div>
+        <div class='v' style='color:{"var(--green)" if delta_proj_total >= 0 else "var(--red)"};'>
+          {int(round(delta_proj_total,0)):+d}
+        </div>
+        <div class='u'>Proj - Meta</div>
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 # =========================
-# PAINÉIS
+# PAINÉIS (RESPONSIVO)
 # =========================
-colA, colB = st.columns(2)
-with colA:
+if modo_mobile:
     render_panel("45L — FORNOS DE BANCADA", base_45, META_45L)
-with colB:
     render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
-
-
+else:
+    colA, colB = st.columns(2)
+    with colA:
+        render_panel("45L — FORNOS DE BANCADA", base_45, META_45L)
+    with colB:
+        render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)

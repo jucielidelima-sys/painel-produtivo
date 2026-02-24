@@ -353,15 +353,15 @@ df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[df["META_H"].isin([META_22L, META_60L])].copy()
+df = df[df["META_H"].isin([META_EMBUTIR, META_45L])].copy()
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
-df_22 = df[df["META_H"] == META_22L].copy()
-df_60 = df[df["META_H"] == META_60L].copy()
+df_EMBUTIR = df[df["META_H"] == META_EMBUTIR].copy()
+df_45 = df[df["META_H"] == META_45L].copy()
 
-base_22 = build_hour_table(df_22)
-base_60 = build_hour_table(df_60)
+base_EMBUTIR = build_hour_table(df_EMBUTIR)
+base_45 = build_hour_table(df_45)
 
 # =========================
 # TOPO (logo + título + botão + hora)
@@ -426,4 +426,5 @@ with colA:
     render_panel("45L — FORNOS DE BANCADA", base_45, META_45L)
 with colB:
     render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
+
 

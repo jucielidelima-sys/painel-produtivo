@@ -255,7 +255,7 @@ def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
     if "EMBUTIR" in d:
         return META_EMBUTIR
-    if "60L" in d:
+    if "45L" in d:
         return META_45L
     return 0
 
@@ -503,3 +503,4 @@ else:
         render_panel("45L — FORNOS DE BANCADA", base_45, META_45L)
     with colB:
         render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
+

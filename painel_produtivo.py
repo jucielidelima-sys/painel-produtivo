@@ -24,7 +24,7 @@ H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
-META_EMBUTIR = 17
+META_EMBUTIR = 15
 META_48L = 50
 
 # colunas por letra do Excel
@@ -503,5 +503,6 @@ else:
         render_panel("48L — FORNOS DE BANCADA", base_48, META_48L)
     with colB:
         render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
+
 
 

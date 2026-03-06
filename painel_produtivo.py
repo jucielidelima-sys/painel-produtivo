@@ -25,7 +25,7 @@ H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
 META_EMBUTIR = 15
-META_48L = 50
+META_40L = 50
 
 # colunas por letra do Excel
 COL_HORA = "X"
@@ -255,8 +255,8 @@ def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
     if "EMBUTIR" in d:
         return META_EMBUTIR
-    if "48L" in d:
-        return META_48L
+    if "40L" in d:
+        return META_40L
     return 0
 
 def horas_ate_agora():
@@ -396,15 +396,15 @@ df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[df["META_H"].isin([META_EMBUTIR, META_48L])].copy()
+df = df[df["META_H"].isin([META_EMBUTIR, META_40L])].copy()
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
 df_EMBUTIR = df[df["META_H"] == META_EMBUTIR].copy()
-df_48 = df[df["META_H"] == META_48L].copy()
+df_40 = df[df["META_H"] == META_40L].copy()
 
 base_EMBUTIR = build_hour_table(df_EMBUTIR)
-base_48 = build_hour_table(df_48)
+base_40 = build_hour_table(df_40)
 
 # =========================
 # CONTROLES (modo)
@@ -450,16 +450,16 @@ with top2:
 # =========================
 # KPIs (TOTAL) - HTML GRID RESPONSIVO
 # =========================
-total_dia = float(base_EMBUTIR["QTD"].sum() + base_48["QTD"].sum())
+total_dia = float(base_EMBUTIR["QTD"].sum() + base_40["QTD"].sum())
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
-meta_turno_total = float((META_EMBUTIR + META_48L) * horas_exibidas)
+meta_turno_total = float((META_EMBUTIR + META_40L) * horas_exibidas)
 
 hn = horas_ate_agora()
 acum_total = float(
     base_EMBUTIR[base_EMBUTIR["HORA"].isin(hn)]["QTD"].sum()
-    + base_48[base_48["HORA"].isin(hn)]["QTD"].sum()
+    + base_40[base_40["HORA"].isin(hn)]["QTD"].sum()
 )
-meta_acum_total = float((META_EMBUTIR + META_48L) * len(hn))
+meta_acum_total = float((META_EMBUTIR + META_40L) * len(hn))
 delta_acum_total = acum_total - meta_acum_total
 
 ritmo = acum_total / max(1, len(hn))
@@ -495,14 +495,15 @@ st.markdown(
 # PAINÉIS (RESPONSIVO)
 # =========================
 if modo_mobile:
-    render_panel("48L — FORNOS DE BANCADA", base_48, META_48L)
+    render_panel("40L — FORNOS DE BANCADA", base_40, META_40L)
     render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
 else:
     colA, colB = st.columns(2)
     with colA:
-        render_panel("48L — FORNOS DE BANCADA", base_48, META_48L)
+        render_panel("40L — FORNOS DE BANCADA", base_40, META_40L)
     with colB:
         render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
+
 
 
 

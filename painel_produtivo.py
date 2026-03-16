@@ -377,7 +377,7 @@ if not ARQ_LIMPO.exists():
 mtime = ARQ_LIMPO.stat().st_mtime
 ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
     return pd.read_excel(path, header=None)
 

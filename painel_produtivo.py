@@ -25,7 +25,7 @@ H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
 META_EMBUTIR = 15
-META_60L = 40
+META_60L = 25
 
 # colunas por letra do Excel
 COL_HORA = "X"

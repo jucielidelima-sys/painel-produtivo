@@ -63,7 +63,13 @@ st.markdown(
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
       /* container padrão */
-      .main .block-container { padding-top: .4rem !important; padding-bottom: .6rem !important; max-width: 1520px; }
+      .main .block-container {
+  padding-top: 0rem !important;
+  padding-bottom: .3rem !important;
+  padding-left: .5rem !important;
+  padding-right: .5rem !important;
+  max-width: 100% !important;
+}
 
       :root{
         --panel:rgba(255,255,255,.05);
@@ -424,9 +430,9 @@ base_60L = build_hour_table(df_60L)
 # =========================
 c_mode1, c_mode2 = st.columns([1, 2], vertical_alignment="center")
 with c_mode1:
-    modo_mobile = st.toggle("Modo celular (1 coluna)", value=True)
+    modo_mobile = st.toggle("Modo celular (1 coluna)", value=False)
 with c_mode2:
-    modo_tv = st.toggle("Modo TV (sem rolagem)", value=False)
+    modo_tv = st.toggle("Modo TV (sem rolagem)", value=True)
 
 # aplica "classe" tv-mode (hack CSS via markdown)
 # (quando modo_tv=True, tentamos travar rolagem em telas grandes; no mobile o @media já libera)

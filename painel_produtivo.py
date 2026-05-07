@@ -46,7 +46,7 @@ COL_QTD = "N"
 COL_DESC = "O"
 
 # =========================
-# CSS MODO TV
+# CSS
 # =========================
 st.markdown(
     """
@@ -55,7 +55,6 @@ st.markdown(
       [data-testid="stAppViewContainer"], section.main, main, .block-container{
         background:#000 !important;
         color:rgba(255,255,255,.92) !important;
-        overflow:hidden !important;
       }
 
       header[data-testid="stHeader"],
@@ -300,6 +299,56 @@ st.markdown(
 
       div[data-testid="stVerticalBlock"] > div{
         gap:.18rem;
+      }
+
+      @media (max-width: 768px) {
+        html, body, #root, .stApp,
+        [data-testid="stAppViewContainer"], section.main, main, .block-container{
+          overflow:auto !important;
+        }
+
+        .main .block-container{
+          padding-left:.75rem !important;
+          padding-right:.75rem !important;
+          max-width:100% !important;
+        }
+
+        .brand-title{
+          font-size:20px;
+        }
+
+        .upd{
+          min-width:unset;
+          width:100%;
+        }
+
+        .kpi-grid{
+          grid-template-columns:repeat(2,1fr);
+          gap:8px;
+        }
+
+        .kpi .v{
+          font-size:20px;
+        }
+
+        .table-header{
+          grid-template-columns:56px 44px 44px 50px 1fr;
+          font-size:10px;
+        }
+
+        .row{
+          grid-template-columns:56px 44px 44px 50px 1fr;
+          font-size:10px;
+        }
+
+        .smallnote{
+          font-size:9px;
+        }
+
+        .chip{
+          font-size:10px;
+          padding:4px 7px;
+        }
       }
     </style>
     """,
@@ -550,7 +599,6 @@ ultima_atualizacao = datetime.fromtimestamp(
     tz=TZ_BR
 ).strftime("%d/%m/%Y %H:%M:%S")
 
-# leitura direta do Excel a cada refresh
 df0 = pd.read_excel(ARQ_LIMPO, header=None)
 
 s_hora = get_series_by_letter(df0, COL_HORA)
@@ -587,6 +635,44 @@ df_60L = df[df["META_H"] == META_60L].copy()
 
 base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_60L = build_hour_table(df_60L)
+
+# =========================
+# CONTROLES
+# =========================
+c_mode1, c_mode2 = st.columns([1, 2], vertical_alignment="center")
+
+with c_mode1:
+    modo_mobile = st.toggle("Modo celular 1 coluna", value=False)
+
+with c_mode2:
+    modo_tv = st.toggle("Modo TV sem rolagem", value=True)
+
+if modo_tv and not modo_mobile:
+    st.markdown(
+        """
+        <style>
+          html, body, #root, .stApp,
+          [data-testid="stAppViewContainer"], section.main, main, .block-container{
+            height:100vh !important;
+            overflow:hidden !important;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        """
+        <style>
+          html, body, #root, .stApp,
+          [data-testid="stAppViewContainer"], section.main, main, .block-container{
+            height:auto !important;
+            overflow:auto !important;
+          }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 # =========================
 # TOPO
@@ -682,9 +768,11 @@ st.markdown(
       </div>
 
       <div class='kpi'>
-        <div class='t'>AUTO REFRESH</div>
-        <div class='v'>30s</div>
-        <div class='u'>Ativo sem cache</div>
+        <div class='t'>DELTA PROJEÇÃO</div>
+        <div class='v' style='color:{"var(--green)" if delta_proj_total >= 0 else "var(--red)"};'>
+          {int(round(delta_proj_total, 0)):+d}
+        </div>
+        <div class='u'>Proj - Meta</div>
       </div>
     </div>
     """,
@@ -692,20 +780,34 @@ st.markdown(
 )
 
 # =========================
-# PAINÉIS EM MODO TV — 2 COLUNAS
+# PAINÉIS
 # =========================
-colA, colB = st.columns(2)
-
-with colA:
+if modo_mobile:
     render_panel(
         "60L — FORNOS DE BANCADA",
         base_60L,
         META_60L
     )
 
-with colB:
     render_panel(
         "EMBUTIR — EMBUTIR",
         base_EMBUTIR,
         META_EMBUTIR
     )
+
+else:
+    colA, colB = st.columns(2)
+
+    with colA:
+        render_panel(
+            "60L — FORNOS DE BANCADA",
+            base_60L,
+            META_60L
+        )
+
+    with colB:
+        render_panel(
+            "EMBUTIR — EMBUTIR",
+            base_EMBUTIR,
+            META_EMBUTIR
+        )

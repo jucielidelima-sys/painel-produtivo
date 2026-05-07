@@ -6,7 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # ======================================================
-# CONFIGURAÇÃO PRINCIPAL
+# CONFIG
 # ======================================================
 st.set_page_config(
     page_title="Painel Performance Montagem",
@@ -35,9 +35,6 @@ BASE_DIR = Path(".")
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
-# ======================================================
-# TIMEZONE
-# ======================================================
 TZ_BR = ZoneInfo("America/Sao_Paulo")
 
 # ======================================================
@@ -87,12 +84,11 @@ st.markdown(
         height:0 !important;
     }
 
-    /* REDUÇÃO MÁXIMA DO RECUO SUPERIOR */
     .main .block-container{
         padding-top:0rem !important;
         padding-bottom:.2rem !important;
-        padding-left:.5rem !important;
-        padding-right:.5rem !important;
+        padding-left:.6rem !important;
+        padding-right:.6rem !important;
         max-width:100% !important;
     }
 
@@ -105,7 +101,7 @@ st.markdown(
         --muted:rgba(255,255,255,.65);
 
         --orange:#ff6b00;
-        --green:#2fd12f;
+        --green:#39d239;
         --red:#ff3b30;
     }
 
@@ -125,14 +121,13 @@ st.markdown(
         background:var(--panel);
         border:1px solid var(--stroke);
         border-radius:18px;
-        padding:14px 18px;
-        min-width:250px;
+        padding:16px 18px;
         height:100%;
     }
 
     .upd .lbl{
         color:var(--muted);
-        font-size:14px;
+        font-size:15px;
         font-weight:900;
     }
 
@@ -140,7 +135,7 @@ st.markdown(
         color:var(--orange);
         font-weight:1000;
         font-size:24px;
-        margin-top:4px;
+        margin-top:6px;
     }
 
     /* ======================================================
@@ -150,7 +145,7 @@ st.markdown(
     .kpi-grid{
         display:grid;
         grid-template-columns:repeat(4,1fr);
-        gap:12px;
+        gap:14px;
         margin-top:10px;
         margin-bottom:12px;
     }
@@ -160,19 +155,19 @@ st.markdown(
         border:1px solid var(--stroke);
         border-radius:20px;
         padding:18px;
-        min-height:135px;
+        min-height:145px;
     }
 
     .kpi .t{
         color:var(--muted);
-        font-size:17px;
+        font-size:18px;
         font-weight:900;
     }
 
     .kpi .v{
         font-size:62px;
         font-weight:1000;
-        margin-top:10px;
+        margin-top:12px;
         line-height:1;
     }
 
@@ -204,7 +199,7 @@ st.markdown(
     .panel-title h2{
         margin:0;
         color:var(--orange);
-        font-size:28px;
+        font-size:30px;
         font-weight:1000;
     }
 
@@ -348,7 +343,7 @@ st.markdown(
     }
 
     /* ======================================================
-       MODO TV
+       TV MODE
     ====================================================== */
 
     body.tv-mode,
@@ -428,7 +423,7 @@ st.markdown(
 # ======================================================
 # FUNÇÕES
 # ======================================================
-def excel_letters(n_cols: int):
+def excel_letters(n_cols):
 
     letters = []
 
@@ -499,20 +494,6 @@ def meta_from_desc(desc):
         return META_60L
 
     return 0
-
-
-def horas_ate_agora():
-
-    agora = datetime.now(TZ_BR).hour
-
-    h_max = max(H_INICIO, min(agora, H_FIM))
-
-    horas = [
-        h for h in range(H_INICIO, h_max + 1)
-        if h != H_ALMOCO
-    ]
-
-    return horas if horas else [H_INICIO]
 
 
 def build_hour_table(df_line):
@@ -620,7 +601,7 @@ def render_panel(title, base_horas, meta_h):
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ======================================================
-# LEITURA EXCEL
+# LOAD EXCEL
 # ======================================================
 if not ARQ_LIMPO.exists():
 
@@ -637,7 +618,6 @@ ultima_atualizacao = datetime.fromtimestamp(
     tz=TZ_BR
 ).strftime("%d/%m/%Y %H:%M:%S")
 
-# SEM CACHE
 df0 = pd.read_excel(
     ARQ_LIMPO,
     header=None
@@ -689,7 +669,7 @@ base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_60L = build_hour_table(df_60L)
 
 # ======================================================
-# CONTROLES
+# MODOS
 # ======================================================
 c1, c2 = st.columns([1,1])
 
@@ -731,7 +711,7 @@ else:
 # TOPO
 # ======================================================
 top1, top2 = st.columns(
-    [1.5, 1],
+    [1.6, 1],
     vertical_alignment="center"
 )
 
@@ -763,6 +743,7 @@ with top2:
     st.markdown(
         f"""
         <div class='upd'>
+
             <div class='lbl'>
                 Última atualização
             </div>
@@ -770,6 +751,7 @@ with top2:
             <div class='val'>
                 {ultima_atualizacao}
             </div>
+
         </div>
         """,
         unsafe_allow_html=True,
@@ -814,7 +796,7 @@ st.markdown(
 
     </div>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
 
 # ======================================================

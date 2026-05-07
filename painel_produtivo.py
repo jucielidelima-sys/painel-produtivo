@@ -5,18 +5,12 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# ======================================================
-# CONFIG
-# ======================================================
 st.set_page_config(
     page_title="Painel Performance Montagem",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# ======================================================
-# AUTO REFRESH 30 SEGUNDOS
-# ======================================================
 components.html(
     """
     <script>
@@ -28,447 +22,159 @@ components.html(
     height=0,
 )
 
-# ======================================================
-# PATHS
-# ======================================================
 BASE_DIR = Path(".")
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
 TZ_BR = ZoneInfo("America/Sao_Paulo")
 
-# ======================================================
-# HORÁRIOS
-# ======================================================
 H_INICIO = 7
 H_FIM = 17
-
 H_ALMOCO = 12
 H_ALMOCO_DEST = 13
 
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
-# ======================================================
-# METAS
-# ======================================================
 META_EMBUTIR = 8
 META_60L = 50
 
-# ======================================================
-# COLUNAS EXCEL
-# ======================================================
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
 
-# ======================================================
-# CSS OTIMIZADO TV 50"
-# ======================================================
 st.markdown(
     """
     <style>
-
-    html, body, #root, .stApp,
-    [data-testid="stAppViewContainer"],
-    section.main,
-    main,
-    .block-container{
-        background:#000 !important;
-        color:white !important;
-    }
-
     header[data-testid="stHeader"],
     [data-testid="stToolbar"],
-    [data-testid="stDecoration"]{
+    [data-testid="stDecoration"] {
         display:none !important;
         height:0 !important;
     }
 
-    .main .block-container{
+    .stApp {
+        background:#000000 !important;
+        color:white !important;
+    }
+
+    .block-container {
         padding-top:0rem !important;
-        padding-bottom:.2rem !important;
-        padding-left:.6rem !important;
-        padding-right:.6rem !important;
+        padding-left:0.6rem !important;
+        padding-right:0.6rem !important;
+        padding-bottom:0.2rem !important;
         max-width:100% !important;
     }
 
-    :root{
-        --panel:rgba(255,255,255,.05);
-        --panel2:rgba(255,255,255,.03);
-        --stroke:rgba(255,255,255,.10);
-
-        --text:#ffffff;
-        --muted:rgba(255,255,255,.65);
-
-        --orange:#ff6b00;
-        --green:#39d239;
-        --red:#ff3b30;
+    div[data-testid="stMetric"] {
+        background:rgba(255,255,255,0.05);
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:18px;
+        padding:18px;
+        min-height:130px;
     }
 
-    /* ======================================================
-       TOPO
-    ====================================================== */
+    div[data-testid="stMetricLabel"] {
+        font-size:18px !important;
+        font-weight:900 !important;
+        color:rgba(255,255,255,0.70) !important;
+    }
 
-    .brand-title{
+    div[data-testid="stMetricValue"] {
+        font-size:58px !important;
+        font-weight:1000 !important;
+        color:white !important;
+    }
+
+    div[data-testid="stMetricDelta"] {
+        font-size:18px !important;
+        font-weight:900 !important;
+    }
+
+    .titulo-painel {
         font-size:42px;
         font-weight:1000;
-        margin:0;
-        line-height:1;
-        letter-spacing:-1px;
-    }
-
-    .upd{
-        background:var(--panel);
-        border:1px solid var(--stroke);
-        border-radius:18px;
-        padding:16px 18px;
-        height:100%;
-    }
-
-    .upd .lbl{
-        color:var(--muted);
-        font-size:15px;
-        font-weight:900;
-    }
-
-    .upd .val{
-        color:var(--orange);
-        font-weight:1000;
-        font-size:24px;
-        margin-top:6px;
-    }
-
-    /* ======================================================
-       KPI GRID
-    ====================================================== */
-
-    .kpi-grid{
-        display:grid;
-        grid-template-columns:repeat(4,1fr);
-        gap:14px;
-        margin-top:10px;
-        margin-bottom:12px;
-    }
-
-    .kpi{
-        background:var(--panel);
-        border:1px solid var(--stroke);
-        border-radius:20px;
-        padding:18px;
-        min-height:145px;
-    }
-
-    .kpi .t{
-        color:var(--muted);
-        font-size:18px;
-        font-weight:900;
-    }
-
-    .kpi .v{
-        font-size:62px;
-        font-weight:1000;
-        margin-top:12px;
-        line-height:1;
-    }
-
-    .kpi .u{
-        color:var(--orange);
-        font-weight:1000;
-        font-size:18px;
-        margin-top:8px;
-    }
-
-    /* ======================================================
-       PAINÉIS
-    ====================================================== */
-
-    .panel{
-        background:var(--panel2);
-        border:1px solid var(--stroke);
-        border-radius:20px;
-        padding:14px;
-    }
-
-    .panel-title{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        margin-bottom:12px;
-    }
-
-    .panel-title h2{
-        margin:0;
-        color:var(--orange);
-        font-size:30px;
-        font-weight:1000;
-    }
-
-    .pchips{
-        display:flex;
-        gap:8px;
-    }
-
-    .pch{
-        background:rgba(255,255,255,.05);
-        border:1px solid rgba(255,255,255,.12);
-        border-radius:999px;
-        padding:8px 16px;
-        font-size:15px;
         color:white;
-        font-weight:900;
+        line-height:1;
     }
 
-    .g{
-        color:var(--green);
-    }
-
-    .o{
-        color:var(--orange);
-    }
-
-    .r{
-        color:var(--red);
-    }
-
-    /* ======================================================
-       TABELA
-    ====================================================== */
-
-    .table-header{
-        display:grid;
-        grid-template-columns:90px 80px 80px 80px 1fr;
-        gap:10px;
-        padding:10px;
-        border-bottom:1px solid var(--stroke);
-
+    .sub-info {
         font-size:16px;
+        font-weight:900;
+        color:#ff6b00;
+    }
+
+    .titulo-linha {
+        font-size:28px;
         font-weight:1000;
-        color:var(--muted);
+        color:#ff6b00;
+        margin-top:6px;
+        margin-bottom:4px;
     }
 
-    .row{
-        display:grid;
-        grid-template-columns:90px 80px 80px 80px 1fr;
-        gap:10px;
-        padding:10px;
-        border-bottom:1px solid rgba(255,255,255,.06);
-
-        font-size:17px;
-        align-items:center;
-    }
-
-    .pos{
-        color:var(--green);
-        font-weight:1000;
-    }
-
-    .neg{
-        color:var(--red);
-        font-weight:1000;
-    }
-
-    /* ======================================================
-       BARRAS
-    ====================================================== */
-
-    .barwrap{
-        background:rgba(255,255,255,.08);
-        border:1px solid rgba(255,255,255,.10);
-
-        height:18px;
-        border-radius:999px;
+    .stDataFrame {
+        border:1px solid rgba(255,255,255,0.12);
+        border-radius:18px;
         overflow:hidden;
     }
 
-    .bar{
-        height:100%;
-        border-radius:999px;
-    }
-
-    .bar.orange{
-        background:var(--orange);
-    }
-
-    .bar.green{
-        background:var(--green);
-    }
-
-    .smallnote{
-        color:var(--muted);
-        font-size:15px;
-        margin-top:4px;
-    }
-
-    /* ======================================================
-       FOOTER
-    ====================================================== */
-
-    .foot{
-        margin-top:10px;
-        display:flex;
-        gap:8px;
-        flex-wrap:wrap;
-    }
-
-    .chip{
-        background:rgba(255,255,255,.05);
-        border:1px solid rgba(255,255,255,.10);
-        border-radius:999px;
-
-        padding:8px 14px;
-
-        font-size:15px;
-        color:white;
-        font-weight:900;
-    }
-
-    /* ======================================================
-       BOTÕES
-    ====================================================== */
-
-    .stButton > button{
-        border-radius:12px !important;
-        font-weight:1000 !important;
-        padding:.55rem 1rem !important;
-
+    button[kind="secondary"] {
         background:#111 !important;
         color:white !important;
-
-        border:1px solid rgba(255,255,255,.12) !important;
+        border:1px solid rgba(255,255,255,0.20) !important;
+        border-radius:12px !important;
+        font-weight:900 !important;
     }
 
-    .stButton > button:hover{
-        border:1px solid #ff6b00 !important;
-        color:#ff6b00 !important;
-    }
-
-    /* ======================================================
-       TV MODE
-    ====================================================== */
-
-    body.tv-mode,
-    body.tv-mode html{
-        overflow:hidden !important;
-    }
-
-    body.tv-mode [data-testid="stAppViewContainer"],
-    body.tv-mode section.main,
-    body.tv-mode .block-container{
-        height:100vh !important;
-        overflow:hidden !important;
-    }
-
-    /* ======================================================
-       CELULAR
-    ====================================================== */
-
-    @media (max-width:768px){
-
-        html, body{
-            overflow:auto !important;
+    @media (max-width:768px) {
+        .titulo-painel {
+            font-size:24px;
         }
 
-        .brand-title{
-            font-size:22px;
+        div[data-testid="stMetricValue"] {
+            font-size:32px !important;
         }
 
-        .kpi-grid{
-            grid-template-columns:repeat(2,1fr);
-        }
-
-        .kpi{
+        div[data-testid="stMetric"] {
             min-height:auto;
             padding:12px;
         }
-
-        .kpi .v{
-            font-size:34px;
-        }
-
-        .table-header{
-            grid-template-columns:60px 50px 50px 60px 1fr;
-            font-size:11px;
-        }
-
-        .row{
-            grid-template-columns:60px 50px 50px 60px 1fr;
-            font-size:11px;
-        }
-
-        .smallnote{
-            font-size:10px;
-        }
-
-        .panel-title h2{
-            font-size:18px;
-        }
-
-        .pch{
-            font-size:11px;
-            padding:5px 10px;
-        }
-
-        .chip{
-            font-size:11px;
-            padding:5px 10px;
-        }
-
     }
-
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# ======================================================
-# FUNÇÕES
-# ======================================================
+
 def excel_letters(n_cols):
-
     letters = []
-
     for i in range(n_cols):
-
         x = i
         s = ""
-
         while True:
-
             s = chr(ord("A") + (x % 26)) + s
-
             x = x // 26 - 1
-
             if x < 0:
                 break
-
         letters.append(s)
-
     return letters
 
 
 def get_series_by_letter(df_noheader, letter):
-
     letters = excel_letters(df_noheader.shape[1])
-
     if letter not in letters:
         return None
-
     return df_noheader.iloc[:, letters.index(letter)]
 
 
 def parse_hour(x):
-
     if pd.isna(x):
         return None
 
     try:
-
         ts = pd.to_datetime(x, errors="coerce", dayfirst=True)
-
         if pd.notna(ts):
             return int(ts.hour)
-
-    except:
+    except Exception:
         pass
 
     s = str(x).strip()
@@ -478,13 +184,11 @@ def parse_hour(x):
 
     try:
         return int(s.split(":")[0])
-
-    except:
+    except Exception:
         return None
 
 
 def meta_from_desc(desc):
-
     d = str(desc).upper()
 
     if "EMBUTIR" in d:
@@ -496,119 +200,96 @@ def meta_from_desc(desc):
     return 0
 
 
-def build_hour_table(df_line):
+def horas_ate_agora():
+    agora = datetime.now(TZ_BR).hour
+    h_max = max(H_INICIO, min(agora, H_FIM))
+    horas = [h for h in range(H_INICIO, h_max + 1) if h != H_ALMOCO]
+    return horas if horas else [H_INICIO]
 
-    agg = df_line.groupby(
-        "HORA",
-        as_index=False
-    )["QTD"].sum()
+
+def build_hour_table(df_line, meta_h):
+    agg = df_line.groupby("HORA", as_index=False)["QTD"].sum()
 
     base = pd.DataFrame({
-        "HORA":[
-            h for h in HORAS_TURNO
-            if h != H_ALMOCO
-        ]
+        "Hora": [h for h in HORAS_TURNO if h != H_ALMOCO]
     })
 
     base = base.merge(
-        agg,
-        on="HORA",
+        agg.rename(columns={"HORA": "Hora", "QTD": "Qtd"}),
+        on="Hora",
         how="left"
-    ).fillna({"QTD":0})
+    ).fillna({"Qtd": 0})
 
-    return base.sort_values("HORA")
+    base["Hora"] = base["Hora"].astype(int)
+    base["Qtd"] = base["Qtd"].astype(float)
+    base["Meta"] = meta_h
+    base["Delta"] = base["Qtd"] - base["Meta"]
+    base["Performance"] = base["Qtd"] / base["Meta"]
+
+    base["Hora"] = base["Hora"].apply(lambda h: f"{h:02d}:00")
+    base["Qtd"] = base["Qtd"].astype(int)
+    base["Meta"] = base["Meta"].astype(int)
+    base["Delta"] = base["Delta"].astype(int)
+
+    return base
 
 
-def render_panel(title, base_horas, meta_h):
+def calc_kpis_linha(base, meta_h):
+    hn = [f"{h:02d}:00" for h in horas_ate_agora()]
 
-    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+    acumulado = base[base["Hora"].isin(hn)]["Qtd"].sum()
+    meta_acum = meta_h * len(hn)
+    delta_acum = acumulado - meta_acum
+
+    ritmo = acumulado / max(1, len(hn))
+    proj = ritmo * len(base)
+
+    meta_turno = meta_h * len(base)
+    delta_proj = proj - meta_turno
+
+    realizado_pct = acumulado / meta_acum if meta_acum else 0
+    proj_pct = proj / meta_turno if meta_turno else 0
+
+    return acumulado, delta_acum, proj, delta_proj, realizado_pct, proj_pct
+
+
+def render_linha(titulo, base, meta_h):
+    acumulado, delta_acum, proj, delta_proj, realizado_pct, proj_pct = calc_kpis_linha(base, meta_h)
 
     st.markdown(
-        f"""
-        <div class='panel-title'>
-            <h2>{title}</h2>
-        </div>
-        """,
-        unsafe_allow_html=True,
+        f"<div class='titulo-linha'>{titulo}</div>",
+        unsafe_allow_html=True
     )
 
-    st.markdown(
-        """
-        <div class='table-header'>
-            <div>Hora</div>
-            <div>Qtd</div>
-            <div>Meta</div>
-            <div>Delta</div>
-            <div>Termômetro</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Realizado", f"{realizado_pct:.0%}")
+    c2.metric("Projeção", f"{proj_pct:.0%}")
+    c3.metric("Acum.", f"{int(acumulado)}", f"{int(delta_acum):+d}")
+    c4.metric("Proj.", f"{int(round(proj, 0))}", f"{int(round(delta_proj, 0)):+d}")
+
+    st.dataframe(
+        base,
+        hide_index=True,
+        use_container_width=True,
+        height=390,
+        column_config={
+            "Hora": st.column_config.TextColumn("Hora", width="small"),
+            "Qtd": st.column_config.NumberColumn("Qtd", width="small"),
+            "Meta": st.column_config.NumberColumn("Meta", width="small"),
+            "Delta": st.column_config.NumberColumn("Delta", width="small"),
+            "Performance": st.column_config.ProgressColumn(
+                "Termômetro",
+                min_value=0,
+                max_value=1,
+                format="%.0f%%",
+                width="large",
+            ),
+        },
     )
 
-    for _, r in base_horas.iterrows():
 
-        h = int(r["HORA"])
-        qtd = float(r["QTD"])
-
-        meta = float(meta_h)
-
-        delta = qtd - meta
-
-        perc = qtd / meta if meta else 0
-
-        w = max(0, min(perc, 1.0)) * 100
-
-        bar_class = "green" if perc >= 1 else "orange"
-
-        termo_txt = (
-            f"{int(qtd)}/{int(meta)} "
-            f"({int(round(perc * 100, 0))}%)"
-        )
-
-        st.markdown(
-            f"""
-            <div class='row'>
-
-                <div>{h:02d}:00</div>
-
-                <div><b>{int(qtd)}</b></div>
-
-                <div>{int(meta)}</div>
-
-                <div class='{"pos" if delta >= 0 else "neg"}'>
-                    {delta:+.0f}
-                </div>
-
-                <div>
-
-                    <div class='barwrap'>
-                        <div class='bar {bar_class}'
-                             style='width:{w:.1f}%'>
-                        </div>
-                    </div>
-
-                    <div class='smallnote'>
-                        {termo_txt}
-                    </div>
-
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ======================================================
-# LOAD EXCEL
-# ======================================================
 if not ARQ_LIMPO.exists():
-
-    st.error(
-        "Não encontrei movimentos_estoque_dados.xlsx"
-    )
-
+    st.error("Não encontrei o arquivo movimentos_estoque_dados.xlsx no repositório.")
     st.stop()
 
 mtime = ARQ_LIMPO.stat().st_mtime
@@ -618,220 +299,103 @@ ultima_atualizacao = datetime.fromtimestamp(
     tz=TZ_BR
 ).strftime("%d/%m/%Y %H:%M:%S")
 
-df0 = pd.read_excel(
-    ARQ_LIMPO,
-    header=None
-)
+df0 = pd.read_excel(ARQ_LIMPO, header=None)
 
 s_hora = get_series_by_letter(df0, COL_HORA)
 s_qtd = get_series_by_letter(df0, COL_QTD)
 s_desc = get_series_by_letter(df0, COL_DESC)
 
+if s_hora is None or s_qtd is None or s_desc is None:
+    st.error("Não consegui localizar as colunas N, O e X no arquivo Excel.")
+    st.stop()
+
 df = pd.DataFrame({
-    "HORA_RAW":s_hora,
-    "QTD_RAW":s_qtd,
-    "DESC":s_desc
+    "HORA_RAW": s_hora,
+    "QTD_RAW": s_qtd,
+    "DESC": s_desc,
 }).dropna(how="all")
 
 df["HORA"] = df["HORA_RAW"].apply(parse_hour)
-
-df["QTD"] = pd.to_numeric(
-    df["QTD_RAW"],
-    errors="coerce"
-).fillna(0)
-
+df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[
-    df["META_H"].isin(
-        [META_EMBUTIR, META_60L]
-    )
-]
+df = df[df["META_H"].isin([META_EMBUTIR, META_60L])].copy()
+df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
+df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
-df.loc[
-    df["HORA"] == H_ALMOCO,
-    "HORA"
-] = H_ALMOCO_DEST
+df_60L = df[df["META_H"] == META_60L].copy()
+df_EMBUTIR = df[df["META_H"] == META_EMBUTIR].copy()
 
-df = df[
-    df["HORA"].between(H_INICIO, H_FIM)
-]
+base_60L = build_hour_table(df_60L, META_60L)
+base_EMBUTIR = build_hour_table(df_EMBUTIR, META_EMBUTIR)
 
-df_EMBUTIR = df[
-    df["META_H"] == META_EMBUTIR
-]
-
-df_60L = df[
-    df["META_H"] == META_60L
-]
-
-base_EMBUTIR = build_hour_table(df_EMBUTIR)
-base_60L = build_hour_table(df_60L)
-
-# ======================================================
-# MODOS
-# ======================================================
-c1, c2 = st.columns([1,1])
-
-with c1:
-    modo_mobile = st.toggle(
-        "📱 MODO CELULAR",
-        value=False
-    )
-
-with c2:
-    modo_tv = st.toggle(
-        "📺 MODO TV",
-        value=True
-    )
+modo_mobile = st.toggle("📱 MODO CELULAR", value=False)
+modo_tv = st.toggle("📺 MODO TV", value=True)
 
 if modo_tv and not modo_mobile:
-
     st.markdown(
         """
-        <script>
-            document.body.classList.add('tv-mode');
-        </script>
+        <style>
+        html, body, .stApp, [data-testid="stAppViewContainer"], .block-container {
+            overflow:hidden !important;
+        }
+        </style>
         """,
         unsafe_allow_html=True,
     )
 
-else:
-
-    st.markdown(
-        """
-        <script>
-            document.body.classList.remove('tv-mode');
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# ======================================================
-# TOPO
-# ======================================================
-top1, top2 = st.columns(
-    [1.6, 1],
-    vertical_alignment="center"
-)
+top1, top2 = st.columns([2.4, 1], vertical_alignment="center")
 
 with top1:
+    l1, l2 = st.columns([0.35, 3], vertical_alignment="center")
 
-    c1, c2 = st.columns(
-        [1,6],
-        vertical_alignment="center"
-    )
-
-    with c1:
-
+    with l1:
         if LOGO_PATH.exists():
+            st.image(str(LOGO_PATH), width=95)
 
-            st.image(
-                str(LOGO_PATH),
-                width=120
-            )
-
-    with c2:
-
+    with l2:
         st.markdown(
-            "<div class='brand-title'>Painel Performance Montagem</div>",
+            "<div class='titulo-painel'>Painel Performance Montagem</div>",
             unsafe_allow_html=True,
         )
 
 with top2:
+    st.metric("Última atualização", ultima_atualizacao)
 
-    st.markdown(
-        f"""
-        <div class='upd'>
+total_dia = int(base_60L["Qtd"].sum() + base_EMBUTIR["Qtd"].sum())
 
-            <div class='lbl'>
-                Última atualização
-            </div>
+horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
+meta_turno_total = int((META_60L + META_EMBUTIR) * horas_exibidas)
 
-            <div class='val'>
-                {ultima_atualizacao}
-            </div>
+hn_texto = [f"{h:02d}:00" for h in horas_ate_agora()]
 
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-# ======================================================
-# KPI
-# ======================================================
-total_dia = float(
-    base_EMBUTIR["QTD"].sum()
-    +
-    base_60L["QTD"].sum()
+acum_total = int(
+    base_60L[base_60L["Hora"].isin(hn_texto)]["Qtd"].sum()
+    + base_EMBUTIR[base_EMBUTIR["Hora"].isin(hn_texto)]["Qtd"].sum()
 )
 
-st.markdown(
-    f"""
-    <div class='kpi-grid'>
+meta_acum_total = int((META_60L + META_EMBUTIR) * len(hn_texto))
+delta_acum_total = int(acum_total - meta_acum_total)
 
-        <div class='kpi'>
-            <div class='t'>TOTAL DO DIA</div>
-            <div class='v'>{int(total_dia)}</div>
-            <div class='u'>UNIDADES</div>
-        </div>
+ritmo_total = acum_total / max(1, len(hn_texto))
+proj_final_total = int(round(ritmo_total * horas_exibidas, 0))
+delta_proj_total = int(proj_final_total - meta_turno_total)
 
-        <div class='kpi'>
-            <div class='t'>META 60L</div>
-            <div class='v'>{META_60L}</div>
-            <div class='u'>POR HORA</div>
-        </div>
+k1, k2, k3, k4 = st.columns(4)
 
-        <div class='kpi'>
-            <div class='t'>META EMBUTIR</div>
-            <div class='v'>{META_EMBUTIR}</div>
-            <div class='u'>POR HORA</div>
-        </div>
+k1.metric("TOTAL DO DIA", f"{total_dia}", "Unidades")
+k2.metric("DELTA ACUMULADO", f"{delta_acum_total:+d}", "Meta até agora")
+k3.metric("PROJEÇÃO FINAL", f"{proj_final_total}", "Ritmo x horas")
+k4.metric("DELTA PROJEÇÃO", f"{delta_proj_total:+d}", "Proj - Meta")
 
-        <div class='kpi'>
-            <div class='t'>AUTO REFRESH</div>
-            <div class='v'>30s</div>
-            <div class='u'>ATIVO</div>
-        </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-# ======================================================
-# PAINÉIS
-# ======================================================
 if modo_mobile:
-
-    render_panel(
-        "60L — FORNOS DE BANCADA",
-        base_60L,
-        META_60L
-    )
-
-    render_panel(
-        "EMBUTIR — EMBUTIR",
-        base_EMBUTIR,
-        META_EMBUTIR
-    )
-
+    render_linha("60L — FORNOS DE BANCADA", base_60L, META_60L)
+    render_linha("EMBUTIR — EMBUTIR", base_EMBUTIR, META_EMBUTIR)
 else:
-
     col1, col2 = st.columns(2)
 
     with col1:
-
-        render_panel(
-            "60L — FORNOS DE BANCADA",
-            base_60L,
-            META_60L
-        )
+        render_linha("60L — FORNOS DE BANCADA", base_60L, META_60L)
 
     with col2:
-
-        render_panel(
-            "EMBUTIR — EMBUTIR",
-            base_EMBUTIR,
-            META_EMBUTIR
-        )
+        render_linha("EMBUTIR — EMBUTIR", base_EMBUTIR, META_EMBUTIR)

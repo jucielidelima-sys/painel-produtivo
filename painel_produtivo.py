@@ -38,6 +38,7 @@ H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
 META_EMBUTIR = 8
+META_E50 = 8
 META_60L = 50
 
 # colunas por letra do Excel
@@ -272,10 +273,16 @@ def parse_hour(x):
 
 def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
+
     if "EMBUTIR" in d:
         return META_EMBUTIR
+
+    if "E50" in d:
+        return META_E50
+
     if "60L" in d:
         return META_60L
+
     return 0
 
 def horas_ate_agora():
@@ -415,7 +422,7 @@ df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[df["META_H"].isin([META_EMBUTIR, META_60L])].copy()
+df = df[df["META_H"].isin([META_EMBUTIR, META_E50, META_60L])].copy()
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 

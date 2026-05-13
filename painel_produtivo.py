@@ -161,8 +161,8 @@ div[data-testid="stHorizontalBlock"] {
         background:var(--panel2);
         border:1px solid var(--stroke);
         border-radius:14px;
-        padding:8px;
-        margin-bottom: 10px;
+        padding:5px;
+        margin-bottom: 4px;
       }
 
       .panel-title{

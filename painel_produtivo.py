@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from zoneinfo import ZoneInfo  # Python 3.9+
+from zoneinfo import ZoneInfo
 
 # =========================
 # CONFIG
@@ -13,6 +13,7 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
 # =========================
 # AUTO REFRESH 30 SEGUNDOS
 # =========================
@@ -26,13 +27,13 @@ components.html(
     """,
     height=0,
 )
-BASE_DIR = Path(".")  # repo / Streamlit Cloud
+
+BASE_DIR = Path(".")
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
 LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
 TZ_BR = ZoneInfo("America/Sao_Paulo")
 
-# BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
@@ -41,91 +42,40 @@ META_EMBUTIR = 8
 META_E50 = 8
 META_60L = 50
 
-# colunas por letra do Excel
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
 
 # =========================
-# CSS (RESPONSIVO: TV + CELULAR)
+# CSS COMPACTO PARA TV
 # =========================
 st.markdown(
     """
     <style>
-      /* fundo preto geral */
       html, body, #root, .stApp,
       [data-testid="stAppViewContainer"], section.main, main, .block-container{
-        background:#000 !important; color:rgba(255,255,255,.92) !important;
+        background:#000 !important;
+        color:rgba(255,255,255,.92) !important;
       }
 
-      /* remove header do streamlit (tarja) */
       header[data-testid="stHeader"] { display:none !important; height:0 !important; }
       [data-testid="stToolbar"] { display:none !important; height:0 !important; }
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
-      /* container padrão */
-  /* REMOVE RECUO SUPERIOR DO STREAMLIT */
-[data-testid="stAppViewContainer"] {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
+      iframe {
+        height:0px !important;
+        min-height:0px !important;
+        display:none !important;
+      }
 
-section.main {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
+      .main .block-container {
+        padding-top:0rem !important;
+        padding-bottom:.15rem !important;
+        padding-left:.45rem !important;
+        padding-right:.45rem !important;
+        max-width:100% !important;
+      }
 
-main {
-    padding-top: 0rem !important;
-    margin-top: 0rem !important;
-}
-
-.block-container {
-    padding-top: 0rem !important;
-    margin-top: -5.5rem !important;
-
-    padding-left: .5rem !important;
-    padding-right: .5rem !important;
-    padding-bottom: .2rem !important;
-
-    max-width: 100% !important;
-}
-
-/* REMOVE ESPAÇO DO AUTO REFRESH INVISÍVEL */
-iframe {
-    height: 0px !important;
-    min-height: 0px !important;
-    display: none !important;
-}
-
-/* APROXIMA OS TOGGLES DO TOPO */
-div[data-testid="stHorizontalBlock"] {
-    margin-top: 0rem !important;
-    padding-top: 0rem !important;
-}
-/* =========================
-   MODO CELULAR
-   ========================= */
-@media (max-width: 768px) {
-
-    html, body {
-        overflow: auto !important;
-    }
-
-    [data-testid="stAppViewContainer"],
-    section.main,
-    main,
-    .block-container {
-        height: auto !important;
-        overflow: visible !important;
-        margin-top: 0rem !important;
-    }
-
-    .block-container {
-        padding-top: .5rem !important;
-    }
-
-}
       :root{
         --panel:rgba(255,255,255,.05);
         --panel2:rgba(255,255,255,.03);
@@ -137,105 +87,195 @@ div[data-testid="stHorizontalBlock"] {
         --red:#ff4d4f;
       }
 
-      /* TOP BAR */
-      .brand-title{ font-size:30px; font-weight:950; margin:0; line-height:1.05; }
+      .brand-title{
+        font-size:28px;
+        font-weight:950;
+        margin:0;
+        line-height:1;
+      }
+
       .upd{
         background:var(--panel);
         border:1px solid var(--stroke);
         border-radius:12px;
-        padding:6px 10px;
-        min-width:250px;
+        padding:5px 9px;
+        min-width:230px;
       }
-      .upd .lbl{ color:var(--muted); font-size:11px; font-weight:900; }
-      .upd .val{ color:var(--orange); font-weight:950; font-size:13px; margin-top:2px; }
 
-      /* KPI GRID (usar HTML) */
-      .kpi-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:6px 0 8px;}
-      .kpi{ background:var(--panel); border:1px solid var(--stroke); border-radius:14px; padding:8px 10px;}
-      .kpi .t{ color:var(--muted); font-size:11px; font-weight:900;}
-      .kpi .v{ font-size:26px; font-weight:950; margin-top:5px; line-height:1;}
-      .kpi .u{ color:var(--orange); font-weight:950; font-size:11px; margin-top:3px;}
+      .upd .lbl{
+        color:var(--muted);
+        font-size:10px;
+        font-weight:900;
+      }
 
-      /* PANELS */
+      .upd .val{
+        color:var(--orange);
+        font-weight:950;
+        font-size:12px;
+        margin-top:1px;
+      }
+
+      .kpi-grid{
+        display:grid;
+        grid-template-columns:repeat(4,1fr);
+        gap:8px;
+        margin:3px 0 5px;
+      }
+
+      .kpi{
+        background:var(--panel);
+        border:1px solid var(--stroke);
+        border-radius:14px;
+        padding:6px 8px;
+      }
+
+      .kpi .t{
+        color:var(--muted);
+        font-size:10px;
+        font-weight:900;
+      }
+
+      .kpi .v{
+        font-size:22px;
+        font-weight:950;
+        margin-top:3px;
+        line-height:1;
+      }
+
+      .kpi .u{
+        color:var(--orange);
+        font-weight:950;
+        font-size:10px;
+        margin-top:2px;
+      }
+
       .panel{
         background:var(--panel2);
         border:1px solid var(--stroke);
         border-radius:14px;
         padding:5px;
-        margin-bottom: 4px;
+        margin-bottom:4px;
       }
 
       .panel-title{
-        display:flex; align-items:center; justify-content:space-between;
-        gap:10px; margin:0 0 6px 0;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:8px;
+        margin:0 0 4px 0;
       }
+
       .panel-title h2{
-        margin:0; color:var(--orange); font-size:13px; font-weight:950; letter-spacing:.4px;
+        margin:0;
+        color:var(--orange);
+        font-size:12px;
+        font-weight:950;
+        letter-spacing:.3px;
       }
-      .pchips{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+
+      .pchips{
+        display:flex;
+        gap:4px;
+        align-items:center;
+        flex-wrap:wrap;
+      }
+
       .pch{
         background:rgba(255,255,255,.05);
         border:1px solid rgba(255,255,255,.12);
         border-radius:999px;
-        padding:4px 8px;
-        font-size:11px;
+        padding:3px 6px;
+        font-size:10px;
         color:var(--muted);
         white-space:nowrap;
       }
+
       .pch b{ color:var(--text); }
       .pch .g{ color:var(--green); font-weight:950; }
       .pch .o{ color:var(--orange); font-weight:950; }
 
       .table-header{
-        display:grid; grid-template-columns:64px 60px 60px 60px 1fr;
-        gap:8px; padding:6px 6px;
+        display:grid;
+        grid-template-columns:64px 55px 55px 55px 1fr;
+        gap:6px;
+        padding:4px 5px;
         border-bottom:1px solid var(--stroke);
-        color:var(--muted); font-weight:950; font-size:11px;
+        color:var(--muted);
+        font-weight:950;
+        font-size:10px;
       }
+
       .row{
-        display:grid; grid-template-columns:64px 60px 60px 60px 1fr;
-        gap:8px; padding:6px 6px;
+        display:grid;
+        grid-template-columns:64px 55px 55px 55px 1fr;
+        gap:6px;
+        padding:3px 5px;
         border-bottom:1px solid rgba(255,255,255,.07);
-        font-size:11px; align-items:center;
+        font-size:10px;
+        align-items:center;
       }
-      .pos{ color:var(--green); font-weight:950;}
-      .neg{ color:var(--red); font-weight:950;}
+
+      .pos{ color:var(--green); font-weight:950; }
+      .neg{ color:var(--red); font-weight:950; }
 
       .barwrap{
         background:rgba(255,255,255,.07);
         border:1px solid rgba(255,255,255,.10);
-        height:9px; border-radius:999px; overflow:hidden;
+        height:7px;
+        border-radius:999px;
+        overflow:hidden;
       }
-      .bar{ height:100%; border-radius:999px;}
+
+      .bar{
+        height:100%;
+        border-radius:999px;
+      }
+
       .bar.orange{ background:var(--orange); }
       .bar.green{ background:var(--green); }
 
-      .smallnote{ color:var(--muted); font-size:10px; margin-top:2px;}
+      .smallnote{
+        color:var(--muted);
+        font-size:9px;
+        margin-top:1px;
+      }
 
-      /* FOOTER CHIPS */
-      .foot{ margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;}
+      .foot{
+        margin-top:3px;
+        display:flex;
+        gap:4px;
+        flex-wrap:wrap;
+      }
+
       .chip{
         background:rgba(255,255,255,.05);
         border:1px solid rgba(255,255,255,.10);
         border-radius:999px;
-        padding:5px 8px;
-        font-size:11px;
+        padding:3px 6px;
+        font-size:10px;
         color:var(--muted);
       }
+
       .chip b{ color:var(--text); }
-      .chip .o{ color:var(--orange); font-weight:950;}
-      .chip .g{ color:var(--green); font-weight:950;}
-      .chip .r{ color:var(--red); font-weight:950;}
+      .chip .o{ color:var(--orange); font-weight:950; }
+      .chip .g{ color:var(--green); font-weight:950; }
+      .chip .r{ color:var(--red); font-weight:950; }
 
-      .stButton>button{ border-radius:10px; font-weight:950; padding:.30rem .7rem; }
-      div[data-testid="stVerticalBlock"] > div { gap: .18rem; }
+      .stButton>button{
+        border-radius:10px;
+        font-weight:950;
+        padding:.22rem .55rem;
+        font-size:11px;
+      }
 
-      /* ====== MODO TV (sem rolagem) ======
-         ATENÇÃO: aplicamos via classe no body usando um "hack" de CSS (default: ligado)
-      */
+      div[data-testid="stVerticalBlock"] > div {
+        gap:.10rem;
+      }
+
       body.tv-mode, body.tv-mode html {
         overflow:hidden !important;
       }
+
       body.tv-mode [data-testid="stAppViewContainer"],
       body.tv-mode section.main,
       body.tv-mode .block-container{
@@ -243,37 +283,47 @@ div[data-testid="stHorizontalBlock"] {
         overflow:hidden !important;
       }
 
-      /* =========================
-         MOBILE AJUSTES
-         ========================= */
-      @media (max-width: 768px) {
-        /* no celular precisa rolar */
-        html, body { height:auto !important; overflow:auto !important; }
+      @media (max-width:768px) {
+        html, body {
+          height:auto !important;
+          overflow:auto !important;
+        }
+
         [data-testid="stAppViewContainer"], section.main, .block-container{
-          height:auto !important; overflow:visible !important;
+          height:auto !important;
+          overflow:visible !important;
         }
 
         .main .block-container{
-          padding-left: .75rem !important;
-          padding-right: .75rem !important;
-          max-width: 100% !important;
+          padding-top:.5rem !important;
+          padding-left:.75rem !important;
+          padding-right:.75rem !important;
+          max-width:100% !important;
         }
 
         .brand-title{ font-size:20px; }
-        .upd{ min-width: unset; width: 100%; }
+        .upd{ min-width:unset; width:100%; }
 
-        /* KPIs: 4 -> 2 colunas */
-        .kpi-grid{ grid-template-columns:repeat(2,1fr); gap:8px; }
+        .kpi-grid{
+          grid-template-columns:repeat(2,1fr);
+          gap:8px;
+        }
+
         .kpi .v{ font-size:20px; }
 
-        /* tabela compacta */
-        .table-header{ grid-template-columns:56px 44px 44px 50px 1fr; font-size:10px; }
-        .row{ grid-template-columns:56px 44px 44px 50px 1fr; font-size:10px; }
+        .table-header{
+          grid-template-columns:56px 44px 44px 50px 1fr;
+          font-size:10px;
+        }
+
+        .row{
+          grid-template-columns:56px 44px 44px 50px 1fr;
+          font-size:10px;
+        }
 
         .smallnote{ font-size:9px; }
         .chip{ font-size:10px; padding:4px 7px; }
 
-        /* desliga modo TV no celular */
         body.tv-mode [data-testid="stAppViewContainer"],
         body.tv-mode section.main,
         body.tv-mode .block-container{
@@ -302,28 +352,34 @@ def excel_letters(n_cols: int):
         letters.append(s)
     return letters
 
+
 def get_series_by_letter(df_noheader: pd.DataFrame, letter: str):
     letters = excel_letters(df_noheader.shape[1])
     if letter not in letters:
         return None
     return df_noheader.iloc[:, letters.index(letter)]
 
+
 def parse_hour(x):
     if pd.isna(x):
         return None
+
     try:
         ts = pd.to_datetime(x, errors="coerce", dayfirst=True)
         if pd.notna(ts):
             return int(ts.hour)
     except Exception:
         pass
+
     s = str(x).strip()
     if not s:
         return None
+
     try:
         return int(s.split(":")[0])
     except Exception:
         return None
+
 
 def meta_from_desc(desc: str) -> int:
     d = str(desc).upper()
@@ -339,11 +395,13 @@ def meta_from_desc(desc: str) -> int:
 
     return 0
 
+
 def horas_ate_agora():
     agora = datetime.now(TZ_BR).hour
     h_max = max(H_INICIO, min(agora, H_FIM))
     horas = [h for h in range(H_INICIO, h_max + 1) if h != H_ALMOCO]
     return horas if horas else [H_INICIO]
+
 
 def build_hour_table(df_line: pd.DataFrame):
     agg = df_line.groupby("HORA", as_index=False)["QTD"].sum()
@@ -353,24 +411,30 @@ def build_hour_table(df_line: pd.DataFrame):
     base["QTD"] = base["QTD"].astype(float)
     return base.sort_values("HORA")
 
+
 def fmt_delta_html(x: float) -> str:
     return f"<span class='g'>{x:+.0f}</span>" if x >= 0 else f"<span class='r'>{x:+.0f}</span>"
 
+
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
+
 
 def calc_line_kpis(base_horas: pd.DataFrame, meta_h: int):
     hn = horas_ate_agora()
     acumulado = float(base_horas[base_horas["HORA"].isin(hn)]["QTD"].sum())
     meta_acum = float(meta_h * len(hn))
+
     realizado_pct = (acumulado / meta_acum * 100.0) if meta_acum > 0 else 0.0
 
     ritmo = acumulado / max(1, len(hn))
     proj_final = ritmo * len(base_horas)
+
     meta_turno = float(meta_h * len(base_horas))
     proj_pct = (proj_final / meta_turno * 100.0) if meta_turno > 0 else 0.0
 
     return clamp(realizado_pct, 0, 999), clamp(proj_pct, 0, 999)
+
 
 def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     realizado_pct, proj_pct = calc_line_kpis(base_horas, meta_h)
@@ -401,18 +465,23 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         meta = float(meta_h)
         delta = qtd - meta
         perc = (qtd / meta) if meta else 0
+
         w = max(0, min(perc, 1.0)) * 100
         bar_class = "green" if perc >= 1 else "orange"
         delta_class = "pos" if delta >= 0 else "neg"
-        termo_txt = f"{int(qtd)}/{int(meta)} ({int(round(perc*100,0))}%)"
+        termo_txt = f"{int(qtd)}/{int(meta)} ({int(round(perc * 100, 0))}%)"
 
         st.markdown(
             f"""
             <div class='row'>
-              <div>{h:02d}:00</div><div><b>{int(qtd)}</b></div><div>{int(meta)}</div>
+              <div>{h:02d}:00</div>
+              <div><b>{int(qtd)}</b></div>
+              <div>{int(meta)}</div>
               <div class='{delta_class}'>{delta:+.0f}</div>
               <div>
-                <div class='barwrap'><div class='bar {bar_class}' style='width:{w:.1f}%'></div></div>
+                <div class='barwrap'>
+                  <div class='bar {bar_class}' style='width:{w:.1f}%'></div>
+                </div>
                 <div class='smallnote'>{termo_txt}</div>
               </div>
             </div>
@@ -437,7 +506,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         <div class='foot'>
           <div class='chip'>Acum.: <b class='o'>{int(acumulado)}</b></div>
           <div class='chip'>Δ acum.: <b>{fmt_delta_html(delta_acum)}</b></div>
-          <div class='chip'>Proj.: <b>{int(round(proj_final,0))}</b></div>
+          <div class='chip'>Proj.: <b>{int(round(proj_final, 0))}</b></div>
           <div class='chip'>Δ proj.: <b>{fmt_delta_html(delta_proj)}</b></div>
           <div class='chip'>Total: <b class='o'>{int(total)}</b></div>
           <div class='chip'>Meta: <b>{int(meta_turno)}</b></div>
@@ -446,6 +515,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         """,
         unsafe_allow_html=True,
     )
+
 
 # =========================
 # LOAD DATA
@@ -457,88 +527,106 @@ if not ARQ_LIMPO.exists():
 mtime = ARQ_LIMPO.stat().st_mtime
 ultima_atualizacao = datetime.fromtimestamp(mtime, tz=TZ_BR).strftime("%d/%m/%Y %H:%M:%S")
 
+
 @st.cache_data(ttl=60, show_spinner=False)
 def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
     return pd.read_excel(path, header=None)
 
+
 df0 = load_noheader(str(ARQ_LIMPO), mtime)
 
 s_hora = get_series_by_letter(df0, COL_HORA)
-s_qtd  = get_series_by_letter(df0, COL_QTD)
+s_qtd = get_series_by_letter(df0, COL_QTD)
 s_desc = get_series_by_letter(df0, COL_DESC)
 
 if s_hora is None or s_qtd is None or s_desc is None:
-    st.error("Não consegui localizar as colunas por letra (N/O/X) no arquivo.")
+    st.error("Não consegui localizar as colunas por letra N, O e X no arquivo.")
     st.stop()
 
-df = pd.DataFrame({"HORA_RAW": s_hora, "QTD_RAW": s_qtd, "DESC": s_desc}).dropna(how="all")
+df = pd.DataFrame({
+    "HORA_RAW": s_hora,
+    "QTD_RAW": s_qtd,
+    "DESC": s_desc
+}).dropna(how="all")
+
 df["HORA"] = df["HORA_RAW"].apply(parse_hour)
 df["QTD"] = pd.to_numeric(df["QTD_RAW"], errors="coerce").fillna(0)
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
 df = df[df["META_H"].isin([META_EMBUTIR, META_E50, META_60L])].copy()
+
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
-df_EMBUTIR = df[df["META_H"] == META_EMBUTIR].copy()
+df_EMBUTIR = df[df["META_H"].isin([META_EMBUTIR, META_E50])].copy()
 df_60L = df[df["META_H"] == META_60L].copy()
 
 base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_60L = build_hour_table(df_60L)
 
 # =========================
-# CONTROLES (modo)
+# CONTROLES
 # =========================
 c_mode1, c_mode2 = st.columns([1, 2], vertical_alignment="center")
+
 with c_mode1:
     modo_mobile = st.toggle("Modo celular (1 coluna)", value=False)
+
 with c_mode2:
     modo_tv = st.toggle("Modo TV (sem rolagem)", value=True)
 
-# aplica "classe" tv-mode (hack CSS via markdown)
-# (quando modo_tv=True, tentamos travar rolagem em telas grandes; no mobile o @media já libera)
 if modo_tv:
     st.markdown("<script>document.body.classList.add('tv-mode');</script>", unsafe_allow_html=True)
 else:
     st.markdown("<script>document.body.classList.remove('tv-mode');</script>", unsafe_allow_html=True)
 
 # =========================
-# TOPO (logo + título + botão + hora) RESPONSIVO
+# TOPO
 # =========================
 top1, top2 = st.columns([1.2, 1], vertical_alignment="center")
 
 with top1:
     c1, c2 = st.columns([1.2, 5.8], vertical_alignment="center")
+
     with c1:
         if LOGO_PATH.exists():
-            st.image(str(LOGO_PATH), width=70)
+            st.image(str(LOGO_PATH), width=65)
+
     with c2:
-        st.markdown("<div class='brand-title'>Painel Performance Montagem</div>", unsafe_allow_html=True)
+        st.markdown(
+            "<div class='brand-title'>Painel Performance Montagem</div>",
+            unsafe_allow_html=True
+        )
 
 with top2:
     a, b = st.columns([1, 1], vertical_alignment="center")
+
     with a:
         if st.button("🔄 Atualizar"):
             st.cache_data.clear()
             st.rerun()
+
     with b:
         st.markdown(
             f"<div class='upd'><div class='lbl'>Última atualização</div><div class='val'>{ultima_atualizacao}</div></div>",
-            unsafe_allow_html=True,
+            unsafe_allow_html=True
         )
 
 # =========================
-# KPIs (TOTAL) - HTML GRID RESPONSIVO
+# KPIs
 # =========================
 total_dia = float(base_EMBUTIR["QTD"].sum() + base_60L["QTD"].sum())
+
 horas_exibidas = len([h for h in HORAS_TURNO if h != H_ALMOCO])
 meta_turno_total = float((META_EMBUTIR + META_60L) * horas_exibidas)
 
 hn = horas_ate_agora()
+
 acum_total = float(
     base_EMBUTIR[base_EMBUTIR["HORA"].isin(hn)]["QTD"].sum()
     + base_60L[base_60L["HORA"].isin(hn)]["QTD"].sum()
 )
+
 meta_acum_total = float((META_EMBUTIR + META_60L) * len(hn))
 delta_acum_total = acum_total - meta_acum_total
 
@@ -549,20 +637,30 @@ delta_proj_total = proj_final_total - meta_turno_total
 st.markdown(
     f"""
     <div class="kpi-grid">
-      <div class='kpi'><div class='t'>TOTAL DO DIA</div><div class='v'>{int(total_dia)}</div><div class='u'>Unidades</div></div>
+      <div class='kpi'>
+        <div class='t'>TOTAL DO DIA</div>
+        <div class='v'>{int(total_dia)}</div>
+        <div class='u'>Unidades</div>
+      </div>
 
-      <div class='kpi'><div class='t'>DELTA ACUMULADO</div>
+      <div class='kpi'>
+        <div class='t'>DELTA ACUMULADO</div>
         <div class='v' style='color:{"var(--green)" if delta_acum_total >= 0 else "var(--red)"};'>
           {int(delta_acum_total):+d}
         </div>
         <div class='u'>Meta até agora</div>
       </div>
 
-      <div class='kpi'><div class='t'>PROJEÇÃO FINAL</div><div class='v'>{int(round(proj_final_total,0))}</div><div class='u'>Ritmo x H</div></div>
+      <div class='kpi'>
+        <div class='t'>PROJEÇÃO FINAL</div>
+        <div class='v'>{int(round(proj_final_total, 0))}</div>
+        <div class='u'>Ritmo x H</div>
+      </div>
 
-      <div class='kpi'><div class='t'>DELTA PROJEÇÃO</div>
+      <div class='kpi'>
+        <div class='t'>DELTA PROJEÇÃO</div>
         <div class='v' style='color:{"var(--green)" if delta_proj_total >= 0 else "var(--red)"};'>
-          {int(round(delta_proj_total,0)):+d}
+          {int(round(delta_proj_total, 0)):+d}
         </div>
         <div class='u'>Proj - Meta</div>
       </div>
@@ -572,14 +670,16 @@ st.markdown(
 )
 
 # =========================
-# PAINÉIS (RESPONSIVO)
+# PAINÉIS
 # =========================
 if modo_mobile:
     render_panel("60L — FORNOS DE BANCADA", base_60L, META_60L)
-    render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
+    render_panel("EMBUTIR + E50 — META 8", base_EMBUTIR, META_EMBUTIR)
 else:
     colA, colB = st.columns(2)
+
     with colA:
         render_panel("60L — FORNOS DE BANCADA", base_60L, META_60L)
+
     with colB:
-        render_panel("EMBUTIR — EMBUTIR (EMBUTIR)", base_EMBUTIR, META_EMBUTIR)
+        render_panel("EMBUTIR + E50 — META 8", base_EMBUTIR, META_EMBUTIR)

@@ -64,20 +64,44 @@ st.markdown(
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
       /* container padrão */
-  .main .block-container {
-  padding-top: 0rem !important;
-  margin-top: -35px !important;
-
-  padding-bottom: .15rem !important;
-
-  padding-left: .45rem !important;
-  padding-right: .45rem !important;
-
-  max-width: 100% !important;
+  /* REMOVE RECUO SUPERIOR DO STREAMLIT */
+[data-testid="stAppViewContainer"] {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
 }
-section.main > div {
-  padding-top: 0rem !important;
-  margin-top: -25px !important;
+
+section.main {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+main {
+    padding-top: 0rem !important;
+    margin-top: 0rem !important;
+}
+
+.block-container {
+    padding-top: 0rem !important;
+    margin-top: -5.5rem !important;
+
+    padding-left: .5rem !important;
+    padding-right: .5rem !important;
+    padding-bottom: .2rem !important;
+
+    max-width: 100% !important;
+}
+
+/* REMOVE ESPAÇO DO AUTO REFRESH INVISÍVEL */
+iframe {
+    height: 0px !important;
+    min-height: 0px !important;
+    display: none !important;
+}
+
+/* APROXIMA OS TOGGLES DO TOPO */
+div[data-testid="stHorizontalBlock"] {
+    margin-top: 0rem !important;
+    padding-top: 0rem !important;
 }
       :root{
         --panel:rgba(255,255,255,.05);

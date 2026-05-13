@@ -64,14 +64,21 @@ st.markdown(
       [data-testid="stDecoration"] { display:none !important; height:0 !important; }
 
       /* container padrão */
-      .main .block-container {
+  .main .block-container {
   padding-top: 0rem !important;
-  padding-bottom: .3rem !important;
-  padding-left: .5rem !important;
-  padding-right: .5rem !important;
+  margin-top: -35px !important;
+
+  padding-bottom: .15rem !important;
+
+  padding-left: .45rem !important;
+  padding-right: .45rem !important;
+
   max-width: 100% !important;
 }
-
+section.main > div {
+  padding-top: 0rem !important;
+  margin-top: -25px !important;
+}
       :root{
         --panel:rgba(255,255,255,.05);
         --panel2:rgba(255,255,255,.03);

@@ -36,7 +36,7 @@ HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
 META_EMBUTIR = 8
 META_E50 = 8
-META_60L = 50
+META_60L = 60
 
 # colunas por letra do Excel
 COL_HORA = "X"

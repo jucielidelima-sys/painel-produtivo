@@ -103,6 +103,29 @@ div[data-testid="stHorizontalBlock"] {
     margin-top: 0rem !important;
     padding-top: 0rem !important;
 }
+/* =========================
+   MODO CELULAR
+   ========================= */
+@media (max-width: 768px) {
+
+    html, body {
+        overflow: auto !important;
+    }
+
+    [data-testid="stAppViewContainer"],
+    section.main,
+    main,
+    .block-container {
+        height: auto !important;
+        overflow: visible !important;
+        margin-top: 0rem !important;
+    }
+
+    .block-container {
+        padding-top: .5rem !important;
+    }
+
+}
       :root{
         --panel:rgba(255,255,255,.05);
         --panel2:rgba(255,255,255,.03);

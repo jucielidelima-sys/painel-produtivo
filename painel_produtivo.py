@@ -4,18 +4,12 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# =========================
-# CONFIG
-# =========================
 st.set_page_config(
     page_title="Painel Performance Montagem",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# =========================
-# AUTO REFRESH 30 SEGUNDOS — SEM IFRAME
-# =========================
 st.markdown(
     """
     <meta http-equiv="refresh" content="30">
@@ -29,7 +23,6 @@ LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
 TZ_BR = ZoneInfo("America/Sao_Paulo")
 
-# BASE DE CÁLCULO
 H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
 HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
@@ -37,15 +30,12 @@ HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 META_EMBUTIR = 8
 META_E50 = 8
 META_60L = 50
+META_TOP50L = 50
 
-# colunas por letra do Excel
 COL_HORA = "X"
 COL_QTD = "N"
 COL_DESC = "O"
 
-# =========================
-# CSS — TV 50"
-# =========================
 st.markdown(
     """
     <style>
@@ -55,17 +45,9 @@ st.markdown(
         color:rgba(255,255,255,.92) !important;
       }
 
-      header[data-testid="stHeader"] {
-        display:none !important;
-        height:0 !important;
-      }
-
-      [data-testid="stToolbar"] {
-        display:none !important;
-        height:0 !important;
-      }
-
-      [data-testid="stDecoration"] {
+      header[data-testid="stHeader"],
+      [data-testid="stToolbar"],
+      [data-testid="stDecoration"]{
         display:none !important;
         height:0 !important;
       }
@@ -200,19 +182,9 @@ st.markdown(
         white-space:nowrap;
       }
 
-      .pch b{
-        color:var(--text);
-      }
-
-      .pch .g{
-        color:var(--green);
-        font-weight:950;
-      }
-
-      .pch .o{
-        color:var(--orange);
-        font-weight:950;
-      }
+      .pch b{ color:var(--text); }
+      .pch .g{ color:var(--green); font-weight:950; }
+      .pch .o{ color:var(--orange); font-weight:950; }
 
       .table-header{
         display:grid;
@@ -288,24 +260,10 @@ st.markdown(
         color:var(--muted);
       }
 
-      .chip b{
-        color:var(--text);
-      }
-
-      .chip .o{
-        color:var(--orange);
-        font-weight:950;
-      }
-
-      .chip .g{
-        color:var(--green);
-        font-weight:950;
-      }
-
-      .chip .r{
-        color:var(--red);
-        font-weight:950;
-      }
+      .chip b{ color:var(--text); }
+      .chip .o{ color:var(--orange); font-weight:950; }
+      .chip .g{ color:var(--green); font-weight:950; }
+      .chip .r{ color:var(--red); font-weight:950; }
 
       .stButton>button{
         border-radius:10px;
@@ -401,9 +359,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# =========================
-# HELPERS
-# =========================
+
 def excel_letters(n_cols: int):
     letters = []
 
@@ -465,6 +421,15 @@ def meta_from_desc(desc: str) -> int:
 
     if "E50" in d:
         return META_E50
+
+    if "TOP 50L" in d:
+        return META_TOP50L
+
+    if "TOP50L" in d:
+        return META_TOP50L
+
+    if "TOP 50" in d:
+        return META_TOP50L
 
     if "60L" in d:
         return META_60L
@@ -633,9 +598,6 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     )
 
 
-# =========================
-# LOAD DATA
-# =========================
 if not ARQ_LIMPO.exists():
     st.error("Não encontrei movimentos_estoque_dados.xlsx no repositório.")
     st.stop()
@@ -678,21 +640,18 @@ df["QTD"] = pd.to_numeric(
 
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[df["META_H"].isin([META_EMBUTIR, META_E50, META_60L])].copy()
+df = df[df["META_H"].isin([META_EMBUTIR, META_E50, META_60L, META_TOP50L])].copy()
 
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
 df_EMBUTIR = df[df["META_H"].isin([META_EMBUTIR, META_E50])].copy()
-df_60L = df[df["META_H"] == META_60L].copy()
+df_60L = df[df["META_H"].isin([META_60L, META_TOP50L])].copy()
 
 base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_60L = build_hour_table(df_60L)
 
-# =========================
-# CONTROLES
-# =========================
 c_mode1, c_mode2 = st.columns([1, 2], vertical_alignment="center")
 
 with c_mode1:
@@ -704,17 +663,14 @@ with c_mode2:
 if modo_tv:
     st.markdown(
         "<script>document.body.classList.add('tv-mode');</script>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 else:
     st.markdown(
         "<script>document.body.classList.remove('tv-mode');</script>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
-# =========================
-# TOPO
-# =========================
 top1, top2 = st.columns([1.2, 1], vertical_alignment="center")
 
 with top1:
@@ -749,9 +705,6 @@ with top2:
             unsafe_allow_html=True,
         )
 
-# =========================
-# KPIs
-# =========================
 total_dia = float(
     base_EMBUTIR["QTD"].sum()
     + base_60L["QTD"].sum()
@@ -820,12 +773,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# =========================
-# PAINÉIS
-# =========================
 if modo_mobile:
     render_panel(
-        "60L — FORNOS DE BANCADA",
+        "60L + TOP 50L — FORNOS DE BANCADA",
         base_60L,
         META_60L
     )
@@ -841,7 +791,7 @@ else:
 
     with colA:
         render_panel(
-            "60L — FORNOS DE BANCADA",
+            "60L + TOP 50L — FORNOS DE BANCADA",
             base_60L,
             META_60L
         )

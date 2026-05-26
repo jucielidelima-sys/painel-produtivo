@@ -37,6 +37,7 @@ HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 META_EMBUTIR = 10
 META_E50 = 10
 META_60L = 65
+META_50L = 65
 
 # colunas por letra do Excel
 COL_HORA = "X"
@@ -468,7 +469,8 @@ def meta_from_desc(desc: str) -> int:
 
     if "60L" in d:
         return META_60L
-
+ if "50L" in d:
+        return META_50L
     return 0
 
 
@@ -678,14 +680,14 @@ df["QTD"] = pd.to_numeric(
 
 df["META_H"] = df["DESC"].apply(meta_from_desc)
 
-df = df[df["META_H"].isin([META_EMBUTIR, META_E50, META_60L])].copy()
+df = df[df["META_H"].isin([META_EMBUTIR, META_E50, META_60L, meta_50L])].copy()
 
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 
 df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
 
 df_EMBUTIR = df[df["META_H"].isin([META_EMBUTIR, META_E50])].copy()
-df_60L = df[df["META_H"] == META_60L].copy()
+df_60L = df[df["META_H"] == META_60L, META_50L].copy()
 
 base_EMBUTIR = build_hour_table(df_EMBUTIR)
 base_60L = build_hour_table(df_60L)
@@ -825,7 +827,7 @@ st.markdown(
 # =========================
 if modo_mobile:
     render_panel(
-        "60L — FORNOS DE BANCADA",
+        "60L — FORNOS DE BANCADA + 50L",
         base_60L,
         META_60L
     )
@@ -841,7 +843,7 @@ else:
 
     with colA:
         render_panel(
-            "60L — FORNOS DE BANCADA",
+            "60L — FORNOS DE BANCADA + 50L",
             base_60L,
             META_60L
         )

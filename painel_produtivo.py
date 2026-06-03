@@ -610,12 +610,11 @@ ultima_atualizacao = datetime.fromtimestamp(
 ).strftime("%d/%m/%Y %H:%M:%S")
 
 
-@st.cache_data(ttl=60, show_spinner=False)
-def load_noheader(path: str, mtime_cache: float) -> pd.DataFrame:
+def load_noheader(path: str) -> pd.DataFrame:
     return pd.read_excel(path, header=None)
 
 
-df0 = load_noheader(str(ARQ_LIMPO), mtime)
+df0 = load_noheader(str(ARQ_LIMPO))
 
 s_hora = get_series_by_letter(df0, COL_HORA)
 s_qtd = get_series_by_letter(df0, COL_QTD)

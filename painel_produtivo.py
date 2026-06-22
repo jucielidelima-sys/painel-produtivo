@@ -476,20 +476,51 @@ def metas_por_hora(meta_turno: int) -> dict[int, int]:
 META_HORA_EMBUTIR = metas_por_hora(META_TURNO_EMBUTIR)
 META_HORA_BANCADA = metas_por_hora(META_TURNO_BANCADA)
 
-def horas_ate_agora():
+def minutos_decorridos_por_hora() -> dict[int, int]:
+    """Retorna quantos minutos produtivos já devem contar em cada faixa horária.
+
+    A hora atual entra proporcional ao minuto atual.
+    Exemplo: às 10:22 conta 22 minutos da faixa 10:00, não a hora cheia.
+    """
     agora = datetime.now(TZ_BR)
     hora_atual = agora.hour
     minuto_atual = agora.minute
 
-    horas = []
+    minutos = {}
 
-    for h in HORAS_TURNO:
+    for h, minutos_programados in MINUTOS_POR_HORA.items():
         if h < hora_atual:
-            horas.append(h)
-        elif h == hora_atual and minuto_atual > 0:
-            horas.append(h)
+            minutos[h] = minutos_programados
+        elif h == hora_atual:
+            minutos[h] = clamp(minuto_atual, 0, minutos_programados)
+        else:
+            minutos[h] = 0
 
+    return minutos
+
+
+def horas_ate_agora():
+    minutos = minutos_decorridos_por_hora()
+    horas = [h for h, m in minutos.items() if m > 0]
     return horas if horas else [H_INICIO]
+
+
+def meta_acumulada_proporcional(meta_hora: dict[int, int]) -> float:
+    minutos = minutos_decorridos_por_hora()
+    meta = 0.0
+
+    for h, minutos_realizados in minutos.items():
+        minutos_programados = MINUTOS_POR_HORA.get(h, 0)
+        if minutos_programados <= 0:
+            continue
+
+        meta += meta_hora.get(h, 0) * (minutos_realizados / minutos_programados)
+
+    return meta
+
+
+def minutos_acumulados_atuais() -> int:
+    return int(sum(minutos_decorridos_por_hora().values()))
 
 def build_hour_table(df_line: pd.DataFrame, meta_hora: dict[int, int]):
     agg = df_line.groupby("HORA", as_index=False)["QTD"].sum()
@@ -518,18 +549,19 @@ def clamp(v, lo, hi):
 
 def calc_line_kpis(base_horas: pd.DataFrame):
     hn = horas_ate_agora()
-
     base_acum = base_horas[base_horas["HORA"].isin(hn)]
 
     acumulado = float(base_acum["QTD"].sum())
-    meta_acum = float(base_acum["META"].sum())
+
+    meta_hora = dict(zip(base_horas["HORA"].astype(int), base_horas["META"].astype(float)))
+    meta_acum = meta_acumulada_proporcional(meta_hora)
 
     realizado_pct = (
         acumulado / meta_acum * 100.0
         if meta_acum > 0 else 0.0
     )
 
-    minutos_acum = sum(MINUTOS_POR_HORA[h] for h in hn if h in MINUTOS_POR_HORA)
+    minutos_acum = minutos_acumulados_atuais()
     total_minutos = sum(MINUTOS_POR_HORA.values())
 
     ritmo_por_minuto = acumulado / max(1, minutos_acum)
@@ -618,10 +650,11 @@ def render_panel(title, base_horas: pd.DataFrame):
         base_horas[base_horas["HORA"].isin(hn)]["QTD"].sum()
     )
 
-    meta_acum = float(base_horas[base_horas["HORA"].isin(hn)]["META"].sum())
+    meta_hora = dict(zip(base_horas["HORA"].astype(int), base_horas["META"].astype(float)))
+    meta_acum = meta_acumulada_proporcional(meta_hora)
     delta_acum = acumulado - meta_acum
 
-    minutos_acum = sum(MINUTOS_POR_HORA[h] for h in hn if h in MINUTOS_POR_HORA)
+    minutos_acum = minutos_acumulados_atuais()
     total_minutos = sum(MINUTOS_POR_HORA.values())
     ritmo = acumulado / max(1, minutos_acum)
     proj_final = ritmo * total_minutos
@@ -768,13 +801,13 @@ acum_total = float(
 )
 
 meta_acum_total = float(
-    base_EMBUTIR[base_EMBUTIR["HORA"].isin(hn)]["META"].sum()
-    + base_60L[base_60L["HORA"].isin(hn)]["META"].sum()
+    meta_acumulada_proporcional(dict(zip(base_EMBUTIR["HORA"].astype(int), base_EMBUTIR["META"].astype(float))))
+    + meta_acumulada_proporcional(dict(zip(base_60L["HORA"].astype(int), base_60L["META"].astype(float))))
 )
 
 delta_acum_total = acum_total - meta_acum_total
 
-minutos_acum_total = sum(MINUTOS_POR_HORA[h] for h in hn if h in MINUTOS_POR_HORA)
+minutos_acum_total = minutos_acumulados_atuais()
 total_minutos_turno = sum(MINUTOS_POR_HORA.values())
 ritmo = acum_total / max(1, minutos_acum_total)
 

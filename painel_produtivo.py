@@ -25,12 +25,32 @@ TZ_BR = ZoneInfo("America/Sao_Paulo")
 
 H_INICIO, H_FIM = 7, 17
 H_ALMOCO, H_ALMOCO_DEST = 12, 13
-HORAS_TURNO = list(range(H_INICIO, H_FIM + 1))
 
-META_EMBUTIR =5
-META_E50 = 5
-META_60L = 80
-META_TOP50L = 80
+# Metas do turno por família
+# Distribuição proporcional aos minutos trabalhados por faixa horária.
+META_TURNO_EMBUTIR = 50
+META_TURNO_BANCADA = 800
+
+# Minutos produtivos por hora:
+# 09:00 tem intervalo de café, então considera 50 min.
+# 17:00 trabalha somente até 17:15, então considera 15 min.
+MINUTOS_POR_HORA = {
+    7: 60,
+    8: 60,
+    9: 50,
+    10: 60,
+    11: 60,
+    13: 60,
+    14: 60,
+    15: 60,
+    16: 60,
+    17: 15,
+}
+
+HORAS_TURNO = list(MINUTOS_POR_HORA.keys())
+
+FAMILIA_EMBUTIR = "EMBUTIR"
+FAMILIA_BANCADA = "BANCADA"
 
 COL_HORA = "X"
 COL_QTD = "N"
@@ -413,55 +433,77 @@ def parse_hour(x):
         return None
 
 
-def meta_from_desc(desc: str) -> int:
+def familia_from_desc(desc: str) -> str | None:
     d = str(desc).upper()
 
-    if "EMBUTIR" in d:
-        return META_EMBUTIR
+    if "EMBUTIR" in d or "E50" in d:
+        return FAMILIA_EMBUTIR
 
-    if "E50" in d:
-        return META_E50
+    if "TOP 50L" in d or "TOP50L" in d or "TOP 50" in d or "60L" in d:
+        return FAMILIA_BANCADA
 
-    if "TOP 50L" in d:
-        return META_TOP50L
+    return None
 
-    if "TOP50L" in d:
-        return META_TOP50L
 
-    if "TOP 50" in d:
-        return META_TOP50L
+def metas_por_hora(meta_turno: int) -> dict[int, int]:
+    """Distribui a meta do turno proporcionalmente aos minutos de cada hora.
 
-    if "60L" in d:
-        return META_60L
+    Usa arredondamento por maior sobra para garantir que a soma das metas
+    horárias seja exatamente igual à meta do turno.
+    """
+    total_minutos = sum(MINUTOS_POR_HORA.values())
 
-    return 0
+    bruto = {
+        h: (meta_turno * minutos / total_minutos)
+        for h, minutos in MINUTOS_POR_HORA.items()
+    }
 
+    metas = {h: int(v) for h, v in bruto.items()}
+    falta = int(meta_turno - sum(metas.values()))
+
+    ordem = sorted(
+        bruto,
+        key=lambda h: bruto[h] - metas[h],
+        reverse=True,
+    )
+
+    for h in ordem[:falta]:
+        metas[h] += 1
+
+    return metas
+
+
+META_HORA_EMBUTIR = metas_por_hora(META_TURNO_EMBUTIR)
+META_HORA_BANCADA = metas_por_hora(META_TURNO_BANCADA)
 
 def horas_ate_agora():
-    agora = datetime.now(TZ_BR).hour
-    h_max = max(H_INICIO, min(agora, H_FIM))
+    agora = datetime.now(TZ_BR)
+    hora_atual = agora.hour
+    minuto_atual = agora.minute
 
-    horas = [
-        h for h in range(H_INICIO, h_max + 1)
-        if h != H_ALMOCO
-    ]
+    horas = []
+
+    for h in HORAS_TURNO:
+        if h < hora_atual:
+            horas.append(h)
+        elif h == hora_atual and minuto_atual > 0:
+            horas.append(h)
 
     return horas if horas else [H_INICIO]
 
-
-def build_hour_table(df_line: pd.DataFrame):
+def build_hour_table(df_line: pd.DataFrame, meta_hora: dict[int, int]):
     agg = df_line.groupby("HORA", as_index=False)["QTD"].sum()
 
     base = pd.DataFrame({
-        "HORA": [h for h in HORAS_TURNO if h != H_ALMOCO]
+        "HORA": HORAS_TURNO,
     })
 
     base = base.merge(agg, on="HORA", how="left").fillna({"QTD": 0})
     base["HORA"] = base["HORA"].astype(int)
     base["QTD"] = base["QTD"].astype(float)
+    base["META"] = base["HORA"].map(meta_hora).astype(float)
 
     return base.sort_values("HORA")
-
 
 def fmt_delta_html(x: float) -> str:
     if x >= 0:
@@ -474,24 +516,26 @@ def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
 
-def calc_line_kpis(base_horas: pd.DataFrame, meta_h: int):
+def calc_line_kpis(base_horas: pd.DataFrame):
     hn = horas_ate_agora()
 
-    acumulado = float(
-        base_horas[base_horas["HORA"].isin(hn)]["QTD"].sum()
-    )
+    base_acum = base_horas[base_horas["HORA"].isin(hn)]
 
-    meta_acum = float(meta_h * len(hn))
+    acumulado = float(base_acum["QTD"].sum())
+    meta_acum = float(base_acum["META"].sum())
 
     realizado_pct = (
         acumulado / meta_acum * 100.0
         if meta_acum > 0 else 0.0
     )
 
-    ritmo = acumulado / max(1, len(hn))
-    proj_final = ritmo * len(base_horas)
+    minutos_acum = sum(MINUTOS_POR_HORA[h] for h in hn if h in MINUTOS_POR_HORA)
+    total_minutos = sum(MINUTOS_POR_HORA.values())
 
-    meta_turno = float(meta_h * len(base_horas))
+    ritmo_por_minuto = acumulado / max(1, minutos_acum)
+    proj_final = ritmo_por_minuto * total_minutos
+
+    meta_turno = float(base_horas["META"].sum())
 
     proj_pct = (
         proj_final / meta_turno * 100.0
@@ -500,9 +544,8 @@ def calc_line_kpis(base_horas: pd.DataFrame, meta_h: int):
 
     return clamp(realizado_pct, 0, 999), clamp(proj_pct, 0, 999)
 
-
-def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
-    realizado_pct, proj_pct = calc_line_kpis(base_horas, meta_h)
+def render_panel(title, base_horas: pd.DataFrame):
+    realizado_pct, proj_pct = calc_line_kpis(base_horas)
 
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
 
@@ -535,7 +578,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
     for _, r in base_horas.iterrows():
         h = int(r["HORA"])
         qtd = float(r["QTD"])
-        meta = float(meta_h)
+        meta = float(r["META"])
         delta = qtd - meta
         perc = (qtd / meta) if meta else 0
 
@@ -567,7 +610,7 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         )
 
     total = float(base_horas["QTD"].sum())
-    meta_turno = float(meta_h * len(base_horas))
+    meta_turno = float(base_horas["META"].sum())
 
     hn = horas_ate_agora()
 
@@ -575,11 +618,13 @@ def render_panel(title, base_horas: pd.DataFrame, meta_h: int):
         base_horas[base_horas["HORA"].isin(hn)]["QTD"].sum()
     )
 
-    meta_acum = float(meta_h * len(hn))
+    meta_acum = float(base_horas[base_horas["HORA"].isin(hn)]["META"].sum())
     delta_acum = acumulado - meta_acum
 
-    ritmo = acumulado / max(1, len(hn))
-    proj_final = ritmo * len(base_horas)
+    minutos_acum = sum(MINUTOS_POR_HORA[h] for h in hn if h in MINUTOS_POR_HORA)
+    total_minutos = sum(MINUTOS_POR_HORA.values())
+    ritmo = acumulado / max(1, minutos_acum)
+    proj_final = ritmo * total_minutos
     delta_proj = proj_final - meta_turno
 
     st.markdown(
@@ -637,19 +682,19 @@ df["QTD"] = pd.to_numeric(
     errors="coerce"
 ).fillna(0)
 
-df["META_H"] = df["DESC"].apply(meta_from_desc)
+df["FAMILIA"] = df["DESC"].apply(familia_from_desc)
 
-df = df[df["META_H"].isin([META_EMBUTIR, META_E50, META_60L, META_TOP50L])].copy()
+df = df[df["FAMILIA"].isin([FAMILIA_EMBUTIR, FAMILIA_BANCADA])].copy()
 
 df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 
-df = df[df["HORA"].between(H_INICIO, H_FIM)].copy()
+df = df[df["HORA"].isin(HORAS_TURNO)].copy()
 
-df_EMBUTIR = df[df["META_H"].isin([META_EMBUTIR, META_E50])].copy()
-df_60L = df[df["META_H"].isin([META_60L, META_TOP50L])].copy()
+df_EMBUTIR = df[df["FAMILIA"] == FAMILIA_EMBUTIR].copy()
+df_60L = df[df["FAMILIA"] == FAMILIA_BANCADA].copy()
 
-base_EMBUTIR = build_hour_table(df_EMBUTIR)
-base_60L = build_hour_table(df_60L)
+base_EMBUTIR = build_hour_table(df_EMBUTIR, META_HORA_EMBUTIR)
+base_60L = build_hour_table(df_60L, META_HORA_BANCADA)
 
 c_mode1, c_mode2 = st.columns([1, 2], vertical_alignment="center")
 
@@ -709,13 +754,10 @@ total_dia = float(
     + base_60L["QTD"].sum()
 )
 
-horas_exibidas = len([
-    h for h in HORAS_TURNO
-    if h != H_ALMOCO
-])
+horas_exibidas = len(HORAS_TURNO)
 
 meta_turno_total = float(
-    (META_EMBUTIR + META_60L) * horas_exibidas
+    base_EMBUTIR["META"].sum() + base_60L["META"].sum()
 )
 
 hn = horas_ate_agora()
@@ -726,14 +768,17 @@ acum_total = float(
 )
 
 meta_acum_total = float(
-    (META_EMBUTIR + META_60L) * len(hn)
+    base_EMBUTIR[base_EMBUTIR["HORA"].isin(hn)]["META"].sum()
+    + base_60L[base_60L["HORA"].isin(hn)]["META"].sum()
 )
 
 delta_acum_total = acum_total - meta_acum_total
 
-ritmo = acum_total / max(1, len(hn))
+minutos_acum_total = sum(MINUTOS_POR_HORA[h] for h in hn if h in MINUTOS_POR_HORA)
+total_minutos_turno = sum(MINUTOS_POR_HORA.values())
+ritmo = acum_total / max(1, minutos_acum_total)
 
-proj_final_total = ritmo * horas_exibidas
+proj_final_total = ritmo * total_minutos_turno
 
 delta_proj_total = proj_final_total - meta_turno_total
 
@@ -774,15 +819,13 @@ st.markdown(
 
 if modo_mobile:
     render_panel(
-        "60L + TOP 50L — FORNOS DE BANCADA",
-        base_60L,
-        META_60L
+        "60L + TOP 50L — FORNOS DE BANCADA — META 800",
+        base_60L
     )
 
     render_panel(
-        "EMBUTIR + E50 — META 8",
-        base_EMBUTIR,
-        META_EMBUTIR
+        "EMBUTIR + E50 — META 50",
+        base_EMBUTIR
     )
 
 else:
@@ -790,14 +833,12 @@ else:
 
     with colA:
         render_panel(
-            "60L + TOP 50L — FORNOS DE BANCADA",
-            base_60L,
-            META_60L
+            "60L + TOP 50L — FORNOS DE BANCADA — META 800",
+            base_60L
         )
 
     with colB:
         render_panel(
-            "EMBUTIR + E50 — META 8",
-            base_EMBUTIR,
-            META_EMBUTIR
+            "EMBUTIR + E50 — META 50",
+            base_EMBUTIR
         )

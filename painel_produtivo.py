@@ -27,7 +27,7 @@ H_INICIO, H_FIM = 7, 16
 
 # Metas do turno por família
 # Distribuição proporcional aos minutos trabalhados por faixa horária.
-META_TURNO_EMBUTIR = 50
+META_TURNO_EMBUTIR = 100
 META_TURNO_BANCADA = 800
 
 # Minutos produtivos por faixa horária:

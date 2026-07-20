@@ -23,28 +23,30 @@ LOGO_PATH = BASE_DIR / "logo_empresa.png"
 
 TZ_BR = ZoneInfo("America/Sao_Paulo")
 
-H_INICIO, H_FIM = 7, 17
-H_ALMOCO, H_ALMOCO_DEST = 12, 13
+H_INICIO, H_FIM = 7, 16
 
 # Metas do turno por família
 # Distribuição proporcional aos minutos trabalhados por faixa horária.
 META_TURNO_EMBUTIR = 50
 META_TURNO_BANCADA = 800
 
-# Minutos produtivos por hora:
+# Minutos produtivos por faixa horária:
 # 09:00 tem intervalo de café, então considera 50 min.
-# 17:00 trabalha somente até 17:15, então considera 15 min.
+# 12:00 trabalha somente até 12:30, então considera 30 min.
+# O expediente retorna às 12:30; a produção entre 12:30 e 12:59
+# permanece contabilizada na faixa das 12:00.
+# 16:00 trabalha somente até 16:40, então considera 40 min.
 MINUTOS_POR_HORA = {
     7: 60,
     8: 60,
     9: 50,
     10: 60,
     11: 60,
+    12: 30,
     13: 60,
     14: 60,
     15: 60,
-    16: 60,
-    17: 15,
+    16: 40,
 }
 
 HORAS_TURNO = list(MINUTOS_POR_HORA.keys())
@@ -480,7 +482,10 @@ def minutos_decorridos_por_hora() -> dict[int, int]:
     """Retorna quantos minutos produtivos já devem contar em cada faixa horária.
 
     A hora atual entra proporcional ao minuto atual.
-    Exemplo: às 10:22 conta 22 minutos da faixa 10:00, não a hora cheia.
+    Exemplos:
+    - às 10:22 conta 22 minutos da faixa 10:00;
+    - entre 12:30 e 12:59 mantém 30 minutos produtivos na faixa 12:00;
+    - após 16:40 mantém 40 minutos produtivos na faixa 16:00.
     """
     agora = datetime.now(TZ_BR)
     hora_atual = agora.hour
@@ -718,8 +723,6 @@ df["QTD"] = pd.to_numeric(
 df["FAMILIA"] = df["DESC"].apply(familia_from_desc)
 
 df = df[df["FAMILIA"].isin([FAMILIA_EMBUTIR, FAMILIA_BANCADA])].copy()
-
-df.loc[df["HORA"] == H_ALMOCO, "HORA"] = H_ALMOCO_DEST
 
 df = df[df["HORA"].isin(HORAS_TURNO)].copy()
 

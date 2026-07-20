@@ -27,8 +27,8 @@ H_INICIO, H_FIM = 7, 16
 
 # Metas do turno por família
 # Distribuição proporcional aos minutos trabalhados por faixa horária.
-META_TURNO_EMBUTIR = 50
-META_TURNO_BANCADA = 800
+META_TURNO_EMBUTIR = 70
+META_TURNO_BANCADA = 660
 
 # Minutos produtivos por faixa horária:
 # 09:00 tem intervalo de café, então considera 50 min.

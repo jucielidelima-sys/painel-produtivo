@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
@@ -10,12 +11,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-st.markdown(
-    """
-    <meta http-equiv="refresh" content="30">
-    """,
-    unsafe_allow_html=True,
-)
+# Atualiza automaticamente o painel a cada 30 segundos.
+# Instale a dependência com: pip install streamlit-autorefresh
+st_autorefresh(interval=30_000, limit=None, key="painel_auto_refresh")
 
 BASE_DIR = Path(".")
 ARQ_LIMPO = BASE_DIR / "movimentos_estoque_dados.xlsx"
@@ -27,8 +25,8 @@ H_INICIO, H_FIM = 7, 16
 
 # Metas do turno por família
 # Distribuição proporcional aos minutos trabalhados por faixa horária.
-META_TURNO_EMBUTIR = 70
-META_TURNO_BANCADA = 640
+META_TURNO_EMBUTIR = 100
+META_TURNO_BANCADA = 800
 
 # Minutos produtivos por faixa horária:
 # 09:00 tem intervalo de café, então considera 50 min.
